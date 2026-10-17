@@ -1,0 +1,253 @@
+/* -------------------------
+   Modal / Auth
+------------------------- */
+.modal-backdrop {
+  position: fixed;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  background: rgba(16, 16, 24, 0.48);
+  z-index: 30;
+  padding: 18px;
+}
+
+.modal {
+  position: relative;
+  width: min(100%, 480px);
+  background: #fff;
+  border: 1px solid var(--border);
+  border-radius: 24px;
+  box-shadow: 0 30px 70px rgba(18, 22, 28, 0.25);
+  overflow: hidden;
+}
+
+.event-modal,
+.organizer-modal,
+.auth-modal {
+  width: min(100%, 750px);
+}
+
+.modal-close {
+  position: absolute;
+  top: 14px;
+  right: 14px;
+  z-index: 2;
+  display: grid;
+  place-items: center;
+  width: 34px;
+  height: 34px;
+  border: 0;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.8);
+  color: var(--red);
+}
+
+.auth-modal {
+  padding: 28px 26px 22px;
+}
+
+.auth-mark {
+  display: grid;
+  place-items: center;
+  width: 58px;
+  height: 58px;
+  margin: 0 auto 18px;
+  border-radius: 18px;
+  background: var(--peach-soft);
+  color: var(--red);
+}
+
+.auth-modal h2 {
+  margin: 0 0 10px;
+  font-family: "Manrope", sans-serif;
+  font-size: 30px;
+  text-align: center;
+  color: var(--text);
+}
+
+.auth-modal p {
+  margin: 0 0 20px;
+  text-align: center;
+  color: var(--muted);
+  line-height: 1.6;
+}
+
+.auth-modal form {
+  display: grid;
+  gap: 14px;
+}
+
+.auth-modal label {
+  display: grid;
+  gap: 8px;
+  color: var(--text);
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.auth-modal input {
+  width: 100%;
+  min-height: 48px;
+  padding: 0 14px;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: #fff;
+  color: var(--text);
+  outline: none;
+}
+
+.auth-switch {
+  margin-top: 18px;
+  text-align: center;
+  color: var(--muted);
+  font-size: 13px;
+}
+
+.auth-switch button {
+  border: 0;
+  background: transparent;
+  color: var(--red);
+  font-weight: 700;
+}
+
+.modal-content {
+  padding: 26px 26px 22px;
+}
+
+.modal-poster {
+  height: 200px;
+  background-position: center;
+  background-size: cover;
+  background-repeat: no-repeat;
+}
+
+.modal-content h2 {
+  margin: 0 0 12px;
+  font-family: "Manrope", sans-serif;
+  font-size: 28px;
+  color: var(--text);
+}
+
+.modal-content p {
+  margin: 0;
+  color: var(--muted);
+  line-height: 1.7;
+}
+
+.detail-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  margin-top: 18px;
+  color: var(--muted);
+}
+
+.detail-row svg {
+  margin-top: 2px;
+  color: var(--red);
+  flex-shrink: 0;
+}
+
+.detail-row span {
+  display: block;
+  line-height: 1.6;
+}
+
+.detail-row b {
+  display: block;
+  margin-bottom: 2px;
+  color: var(--text);
+}
+
+.rules-box {
+  margin-top: 20px;
+  padding: 16px;
+  border: 1px solid #f4d9d0;
+  border-radius: 14px;
+  background: var(--peach-soft);
+}
+
+.rules-box b {
+  display: block;
+  margin-bottom: 8px;
+  color: var(--text);
+}
+
+.rules-box p {
+  margin: 0;
+  color: var(--muted);
+}
+
+.rsvp-confirmation {
+  width: min(100%, 420px);
+  padding: 32px;
+}
+
+.rsvp-confirmation .auth-mark {
+  margin-bottom: 20px;
+}
+
+.rsvp-confirmation h2 {
+  margin: 12px 0 8px;
+  font-family: "Manrope", sans-serif;
+  font-size: 26px;
+  color: var(--text);
+}
+
+.rsvp-confirmation > p {
+  color: var(--muted);
+  font-size: 13px;
+  line-height: 1.6;
+}
+
+.confirmation-seat {
+  margin: 22px 0;
+  padding: 20px;
+}
+
+.confirmation-seat strong {
+  font-size: 30px;
+}
+
+.organizer-cover {
+  display: grid;
+  place-items: center;
+  height: 180px;
+  background: linear-gradient(120deg, #f5d3c6, #821100);
+  color: rgba(255, 255, 255, 0.9);
+}
+
+.organizer-event {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  width: 100%;
+  margin-top: 12px;
+  padding: 14px 16px;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: #fff;
+  text-align: left;
+}
+
+.organizer-event span {
+  display: grid;
+  gap: 4px;
+  color: var(--text);
+}
+
+.organizer-event b {
+  font-size: 14px;
+}
+
+.organizer-event small {
+  font-size: 12px;
+  color: var(--muted);
+}
+
+.organizer-modal .modal-content h3 {
+  margin: 20px 0 8px;
+  font-size: 18px;
+  color: var(--text);
+}

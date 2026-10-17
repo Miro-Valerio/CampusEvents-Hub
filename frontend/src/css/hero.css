@@ -1,0 +1,230 @@
+/* -------------------------
+   Hero
+------------------------- */
+.hero {
+  display: grid;
+  grid-template-columns: 1fr 0.88fr;
+  align-items: center;
+  gap: 40px;
+  max-width: 1200px;
+  min-height: 500px;
+  margin: 0 auto;
+  padding: 63px 0 52px;
+  background: radial-gradient(ellipse at 80% 25%, #a83a24 0%, transparent 43%), linear-gradient(115deg, #f5d3c6 0%, #c45a40 42%, #821100 100%);
+}
+
+.hero-copy {
+  padding-left: 6px;
+}
+
+.eyebrow {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+}
+
+.eyebrow.muted {
+  color: #8a5d56;
+}
+
+.live-dot {
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  background: #e6473d;
+  box-shadow: 0 0 0 5px rgba(230, 71, 61, 0.18);
+}
+
+.hero h1 {
+  margin: 16px 0;
+  font-family: "Manrope", sans-serif;
+  font-size: 64px;
+  line-height: 0.98;
+  letter-spacing: -2px;
+  color: #fffaf9;
+}
+
+.hero h1 span {
+  color: #fff7f4;
+}
+
+.hero-copy > p {
+  max-width: 520px;
+  margin: 0;
+  font-size: 16px;
+  line-height: 1.7;
+  color: rgba(255, 255, 255, 0.9);
+}
+
+.hero-stats {
+  display: flex;
+  align-items: center;
+  gap: 42px;
+  margin-top: 32px;
+}
+
+.hero-stats div {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.hero-stats b {
+  font-family: "Manrope", sans-serif;
+  font-size: 22px;
+  color: #fff;
+}
+
+.hero-stats span {
+  font-size: 11px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: rgba(255, 255, 255, 0.8);
+}
+
+.hero-art {
+  position: relative;
+  height: 520px;
+}
+
+.orb {
+  position: absolute;
+  border-radius: 50%;
+  filter: blur(4px);
+  opacity: 0.94;
+}
+
+.orb-one {
+  width: 360px;
+  height: 360px;
+  right: 40px;
+  top: 20px;
+  background: rgba(255, 214, 180, 0.22);
+}
+
+.orb-two {
+  width: 290px;
+  height: 290px;
+  right: 0;
+  top: 150px;
+  background: rgba(245, 157, 122, 0.24);
+}
+
+.floating-card {
+  position: absolute;
+  top: 28px;
+  right: 42px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: 250px;
+  padding: 16px 18px;
+  border-radius: 18px;
+  background: rgba(255, 255, 255, 0.18);
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  box-shadow: 0 16px 40px rgba(57, 23, 16, 0.18);
+  color: #fff;
+  backdrop-filter: blur(12px);
+}
+
+.calendar-mini {
+  display: grid;
+  place-items: center;
+  width: 44px;
+  height: 44px;
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.12);
+}
+
+.floating-card b {
+  display: block;
+  font-size: 13px;
+  color: #fff;
+}
+
+.floating-card small {
+  display: block;
+  margin-top: 3px;
+  font-size: 10px;
+  color: rgba(255, 255, 255, 0.74);
+}
+
+.sparkle {
+  margin-left: auto;
+  font-size: 22px;
+  color: #ffe5b0;
+}
+
+.hero-ticket {
+  position: absolute;
+  right: 54px;
+  bottom: 62px;
+  display: flex;
+  flex-direction: column;
+  width: 276px;
+  min-height: 255px;
+  padding: 22px 18px 14px;
+  border-radius: 24px;
+  background: rgba(255, 255, 255, 0.12);
+  border: 1px solid rgba(255, 255, 255, 0.22);
+  backdrop-filter: blur(14px);
+  color: #fff;
+  box-shadow: 0 16px 40px rgba(64, 28, 15, 0.18);
+}
+
+.ticket-label {
+  font-size: 10px;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: rgba(255, 255, 255, 0.85);
+}
+
+.ticket-icon {
+  display: grid;
+  place-items: center;
+  width: 54px;
+  height: 54px;
+  margin: 16px 0 12px;
+  border-radius: 16px;
+  background: rgba(255, 255, 255, 0.16);
+}
+
+.hero-ticket b {
+  font-size: 24px;
+  line-height: 1.2;
+  color: #fff;
+}
+
+.hero-ticket > span {
+  display: block;
+  margin-top: 8px;
+  color: rgba(255, 255, 255, 0.77);
+  line-height: 1.5;
+}
+
+.ticket-bottom {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin-top: auto;
+  padding-top: 14px;
+  font-size: 10px;
+  color: rgba(255, 255, 255, 0.78);
+}
+
+.tiny-pill {
+  position: absolute;
+  right: 24px;
+  bottom: 14px;
+  padding: 8px 12px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.15);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  color: #fff;
+  font-size: 11px;
+}
