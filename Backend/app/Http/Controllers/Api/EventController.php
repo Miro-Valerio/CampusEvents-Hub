@@ -66,7 +66,9 @@ class EventController extends Controller
         $start = \Illuminate\Support\Carbon::createFromFormat('Y-m-d', ($data['month'] ?? now()->format('Y-m')).'-01')->startOfMonth();
 
         $events = Event::with('organizer:id,name')
-            ->whereBetween('starts_at', [$start, $start->copy()->endOfMonth()])
+            ->withCount(['rsvps as active_rsvps_count' => fn (Builder $query) => $query->where('status', Rsvp::STATUS_GOING)])
+            ->where('starts_at', '<=', $start->copy()->endOfMonth())
+            ->whereRaw('COALESCE(ends_at, starts_at) >= ?', [$start])
             ->orderBy('starts_at')
             ->get(['id', 'title', 'venue', 'category', 'starts_at', 'ends_at', 'organizer_id', 'poster_url', 'capacity', 'baseline_registered_count']);
 
@@ -235,17 +237,21 @@ class EventController extends Controller
 
     public function cancelRsvp(Request $request, Event $event): JsonResponse
     {
-        $event->rsvps()
-            ->where('user_id', $request->user()->id)
-            ->where('status', Rsvp::STATUS_GOING)
-            ->update([
-                'status' => Rsvp::STATUS_CANCELLED,
-                'seat_number' => null,
-            ]);
+        $registeredCount = DB::transaction(function () use ($event, $request): int {
+            $lockedEvent = Event::query()->lockForUpdate()->findOrFail($event->id);
 
-        $registeredCount = $event->baseline_registered_count + $event->rsvps()
-            ->where('status', Rsvp::STATUS_GOING)
-            ->count();
+            $lockedEvent->rsvps()
+                ->where('user_id', $request->user()->id)
+                ->where('status', Rsvp::STATUS_GOING)
+                ->update([
+                    'status' => Rsvp::STATUS_CANCELLED,
+                    'seat_number' => null,
+                ]);
+
+            return $lockedEvent->baseline_registered_count + $lockedEvent->rsvps()
+                ->where('status', Rsvp::STATUS_GOING)
+                ->count();
+        });
 
         return response()->json([
             'rsvped' => false,
