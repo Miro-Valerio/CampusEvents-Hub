@@ -1,7 +1,10 @@
 <?php
 
+use App\Http\Controllers\Api\AnnouncementController;
 use App\Http\Controllers\Api\AuthController;
 use App\Http\Controllers\Api\EventController;
+use App\Http\Controllers\Api\NotificationController;
+use App\Http\Controllers\Api\OrganizerAnnouncementController;
 use App\Http\Controllers\Api\OrganizerController;
 use App\Http\Controllers\Api\OrganizerDashboardController;
 use App\Http\Middleware\EnsureOrganizer;
@@ -21,8 +24,15 @@ Route::get('/events/{event}', [EventController::class, 'show']);
 Route::get('/events/{event}/attendees', [EventController::class, 'attendees']);
 Route::get('/organizers', [OrganizerController::class, 'index']);
 Route::get('/organizers/{organizer}', [OrganizerController::class, 'show']);
+Route::get('/announcements', [AnnouncementController::class, 'index']);
 
 Route::middleware('auth:sanctum')->group(function () {
+    Route::get('/announcements/unread', [AnnouncementController::class, 'unread']);
+    Route::post('/announcements/{announcement}/read', [AnnouncementController::class, 'markRead']);
+    Route::post('/announcements/{announcement}/react', [AnnouncementController::class, 'react']);
+    Route::get('/notifications', [NotificationController::class, 'index']);
+    Route::post('/notifications/read-all', [NotificationController::class, 'markAllRead']);
+    Route::post('/notifications/{notification}/read', [NotificationController::class, 'markRead']);
     Route::get('/my-rsvps', [EventController::class, 'myRsvps']);
     Route::get('/my-saves', [EventController::class, 'mySaves']);
     Route::get('/my-calendar', [EventController::class, 'myCalendar']);
@@ -33,6 +43,11 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::post('/events/{event}/save', [EventController::class, 'toggleSave']);
 
     Route::prefix('organizer')->middleware(EnsureOrganizer::class)->group(function () {
+        Route::get('/announcements', [OrganizerAnnouncementController::class, 'index']);
+        Route::post('/announcements', [OrganizerAnnouncementController::class, 'store']);
+        Route::put('/announcements/{announcement}', [OrganizerAnnouncementController::class, 'update']);
+        Route::delete('/announcements/{announcement}', [OrganizerAnnouncementController::class, 'destroy']);
+        Route::post('/announcements/{announcement}/pin', [OrganizerAnnouncementController::class, 'togglePin']);
         Route::get('/events', [OrganizerDashboardController::class, 'index']);
         Route::post('/events', [OrganizerDashboardController::class, 'store']);
         Route::put('/events/{event}', [OrganizerDashboardController::class, 'update']);

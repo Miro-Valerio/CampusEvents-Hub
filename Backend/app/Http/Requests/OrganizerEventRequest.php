@@ -37,8 +37,9 @@ class OrganizerEventRequest extends FormRequest
                 }
 
                 $going = $event->rsvps()->where('status', 'going')->count();
-                if ((int) $this->input('capacity') < $going) {
-                    $validator->errors()->add('capacity', "Capacity cannot be lower than the {$going} current going RSVPs.");
+                $occupiedSeats = (int) $event->baseline_registered_count + $going;
+                if ((int) $this->input('capacity') < $occupiedSeats) {
+                    $validator->errors()->add('capacity', "Capacity cannot be lower than the {$occupiedSeats} occupied seats, including existing registrations.");
                 }
             },
         ];
