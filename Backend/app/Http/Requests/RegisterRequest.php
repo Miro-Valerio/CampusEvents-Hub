@@ -19,6 +19,7 @@ class RegisterRequest extends FormRequest
             'email' => ['required', 'email', 'max:190', 'unique:users,email'],
             'password' => ['required', 'string', 'min:8', 'confirmed'],
             'role' => ['sometimes', 'string', Rule::in(['student', 'organizer'])],
+            'course' => ['nullable', 'string', 'max:100'],
             'organization_name' => ['required_if:role,organizer', 'nullable', 'string', 'max:190'],
             'description' => ['required_if:role,organizer', 'nullable', 'string', 'max:5000'],
         ];

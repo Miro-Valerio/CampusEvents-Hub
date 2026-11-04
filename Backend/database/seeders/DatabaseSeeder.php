@@ -2,6 +2,8 @@
 
 namespace Database\Seeders;
 
+use App\Models\Announcement;
+use App\Models\AnnouncementReaction;
 use App\Models\Event;
 use App\Models\Organizer;
 use App\Models\User;
@@ -27,7 +29,7 @@ class DatabaseSeeder extends Seeder
 
         $student = User::updateOrCreate(
             ['email' => 'student@spc.edu.ph'],
-            ['name' => 'SPC Student', 'password' => Hash::make('password')],
+            ['name' => 'SPC Student', 'password' => Hash::make('password'), 'course' => 'BS Information Technology'],
         );
         $student->role = 'student';
         $student->save();
@@ -157,7 +159,7 @@ class DatabaseSeeder extends Seeder
                 foreach (['Maria Santos', 'Juan Dela Cruz', 'Angel Reyes', 'Paolo Garcia'] as $i => $name) {
                     $guest = User::updateOrCreate(
                         ['email' => 'guest'.($i + 1).'@spc.edu.ph'],
-                        ['name' => $name, 'password' => Hash::make('password')],
+                        ['name' => $name, 'password' => Hash::make('password'), 'course' => $i % 2 === 0 ? 'BS Information Technology' : 'BS Business Administration'],
                     );
                     $guest->rsvps()->updateOrCreate(
                         ['event_id' => $event->id],
@@ -203,6 +205,62 @@ class DatabaseSeeder extends Seeder
                 $event->photos()->updateOrCreate(
                     ['url' => $this->poster("{$slug}-{$n}")],
                     ['caption' => "{$eventData['title']} — photo {$n}"],
+                );
+            }
+        }
+
+        $studentAffairsAccount = User::where('email', 'organizer@spc.edu.ph')->first();
+        $itOrganizerAccount = User::where('email', 'it.organizer@spc.edu.ph')->first();
+
+        $announcements = [
+            [
+                'title' => 'Foundation Week schedule is now live',
+                'body' => 'The full Foundation Week lineup is out. Check the event feed for the opening program, org fair, and intramurals. See you there, SPC!',
+                'pinned' => true,
+                'course' => null,
+                'organizer_id' => $studentAffairs->id,
+                'user_id' => $studentAffairsAccount?->id,
+            ],
+            [
+                'title' => 'BSIT capstone orientation this Friday',
+                'body' => 'All BS Information Technology students are invited to the capstone orientation at Computer Laboratory 2. Bring your proposed project title and team members.',
+                'pinned' => false,
+                'course' => 'BS Information Technology',
+                'organizer_id' => $itOrganization->id,
+                'user_id' => $itOrganizerAccount?->id,
+            ],
+            [
+                'title' => 'Org fair booths are still open',
+                'body' => 'Student organizations can still reserve a booth for the Student Organization Fair. Message the Student Affairs office to secure a slot.',
+                'pinned' => false,
+                'course' => null,
+                'organizer_id' => $studentAffairs->id,
+                'user_id' => $studentAffairsAccount?->id,
+            ],
+        ];
+
+        $seededAnnouncements = collect($announcements)->map(
+            fn (array $announcement): Announcement => Announcement::updateOrCreate(
+                ['title' => $announcement['title']],
+                $announcement,
+            ),
+        );
+
+        $pinnedAnnouncement = $seededAnnouncements->firstWhere('pinned', true);
+        if ($pinnedAnnouncement) {
+            $reactionUsers = User::query()
+                ->whereIn('email', ['student@spc.edu.ph', 'guest1@spc.edu.ph', 'guest2@spc.edu.ph', 'guest3@spc.edu.ph'])
+                ->orderBy('id')
+                ->get();
+            $reactionEmojis = ['👍', '🎉', '❤️', '👏'];
+
+            foreach ($reactionUsers as $index => $reactionUser) {
+                AnnouncementReaction::updateOrCreate(
+                    [
+                        'announcement_id' => $pinnedAnnouncement->id,
+                        'user_id' => $reactionUser->id,
+                    ],
+                    ['emoji' => $reactionEmojis[$index]],
                 );
             }
         }

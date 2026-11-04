@@ -1,5 +1,6 @@
 import React from "react";
 import { CalendarDays, Loader2, X } from "lucide-react";
+import { COURSES } from "../constants";
 
 export default function AuthModal({
   mode,
@@ -66,6 +67,23 @@ export default function AuthModal({
               >
                 <option value="student">Student</option>
                 <option value="organizer">Event organizer</option>
+              </select>
+            </label>
+          )}
+          {mode === "register" && form.role === "student" && (
+            <label>
+              Course (optional)
+              <select
+                value={form.course || ""}
+                onChange={(event) => onFormChange("course", event.target.value)}
+                disabled={isSubmitting}
+              >
+                <option value="">Not set</option>
+                {COURSES.map((name) => (
+                  <option key={name} value={name}>
+                    {name}
+                  </option>
+                ))}
               </select>
             </label>
           )}

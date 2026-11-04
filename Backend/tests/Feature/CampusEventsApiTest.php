@@ -195,6 +195,16 @@ class CampusEventsApiTest extends TestCase
             ->putJson("/api/organizer/events/{$eventId}", $this->eventData(['capacity' => 2]))
             ->assertOk();
 
+        $event = Event::findOrFail($eventId);
+        $event->update(['baseline_registered_count' => 5]);
+        $this->withToken($token)
+            ->putJson("/api/organizer/events/{$eventId}", $this->eventData(['capacity' => 6]))
+            ->assertUnprocessable()
+            ->assertJsonValidationErrors(['capacity']);
+        $this->withToken($token)
+            ->putJson("/api/organizer/events/{$eventId}", $this->eventData(['capacity' => 7]))
+            ->assertOk();
+
         $this->withToken($token)
             ->deleteJson("/api/organizer/events/{$eventId}")
             ->assertOk()

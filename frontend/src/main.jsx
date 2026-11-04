@@ -10,6 +10,7 @@ import {
   X,
 } from "lucide-react";
 import AppHeader from "./components/AppHeader";
+import AnnouncementsView from "./components/AnnouncementsView";
 import AuthModal from "./components/AuthModal";
 import ArchiveView from "./components/ArchiveView";
 import CalendarView from "./components/CalendarView";
@@ -31,6 +32,7 @@ import "./css/feedback.css";
 import "./css/modals.css";
 import "./css/organizers.css";
 import "./css/organizer-dashboard.css";
+import "./css/announcements.css";
 import "./css/event-page.css";
 import "./css/calendar.css";
 import "./css/archive.css";
@@ -82,6 +84,20 @@ function App() {
   const [rsvpBusyEventId, setRsvpBusyEventId] = useState(null);
   const [seatConfirmation, setSeatConfirmation] = useState(null);
 
+  // Campus announcements feed and notifications.
+  const [announcements, setAnnouncements] = useState([]);
+  const [announcementEmojis, setAnnouncementEmojis] = useState([]);
+  const [announcementCourse, setAnnouncementCourse] = useState("");
+  const [announcementOrganizer, setAnnouncementOrganizer] = useState("");
+  const [announcementSearch, setAnnouncementSearch] = useState("");
+  const [announcementsLoading, setAnnouncementsLoading] = useState(false);
+  const [unreadAnnouncements, setUnreadAnnouncements] = useState(0);
+  const [announcementBusyId, setAnnouncementBusyId] = useState(null);
+  const [notifications, setNotifications] = useState([]);
+  const [notificationsUnread, setNotificationsUnread] = useState(0);
+  const [notificationsOpen, setNotificationsOpen] = useState(false);
+  const [notificationsLoading, setNotificationsLoading] = useState(false);
+
   // Auth dialog and page-level feedback.
   const [authOpen, setAuthOpen] = useState(false);
   const [authMode, setAuthMode] = useState("login");
@@ -99,6 +115,7 @@ function App() {
     role: "student",
     organization_name: "",
     description: "",
+    course: "",
   });
 
   const showError = (message, retry = null) => {
@@ -180,6 +197,53 @@ function App() {
     }
   };
 
+  const loadAnnouncements = async () => {
+    setAnnouncementsLoading(true);
+    try {
+      const { data } = await http.get("/announcements", {
+        params: {
+          course: announcementCourse,
+          organizer_id: announcementOrganizer,
+          search: announcementSearch,
+        },
+      });
+      setAnnouncements(data.data || []);
+      setAnnouncementEmojis(data.emojis || []);
+      setUnreadAnnouncements(data.unread_count || 0);
+    } catch {
+      showError("Could not load the campus feed. Please retry.", loadAnnouncements);
+    } finally {
+      setAnnouncementsLoading(false);
+    }
+  };
+  const loadNotifications = async (silent = false) => {
+    if (!localStorage.getItem(tokenKey)) {
+      setNotifications([]);
+      setNotificationsUnread(0);
+      return;
+    }
+    if (!silent) setNotificationsLoading(true);
+    try {
+      const { data } = await http.get("/notifications");
+      setNotifications(data.data || []);
+      setNotificationsUnread(data.unread_count || 0);
+    } catch {
+      if (!silent) showError("Could not load your notifications. Please retry.");
+    } finally {
+      if (!silent) setNotificationsLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    const timer = setTimeout(() => loadAnnouncements(), 250);
+    return () => clearTimeout(timer);
+  }, [announcementCourse, announcementOrganizer, announcementSearch]);
+  useEffect(() => {
+    if (!user) return undefined;
+    const timer = setInterval(() => loadNotifications(true), 60000);
+    return () => clearInterval(timer);
+  }, [user]);
+
   useEffect(() => {
     const timer = setTimeout(() => loadEvents(1), 250);
     return () => clearTimeout(timer);
@@ -198,7 +262,7 @@ function App() {
         if (localStorage.getItem(tokenKey) !== token) return;
         setUser(data);
         if (data?.role === "organizer") setView("dashboard");
-        return loadMyLists();
+        return Promise.all([loadMyLists(), loadNotifications(), loadAnnouncements()]);
       })
       .catch(() => {
         if (localStorage.getItem(tokenKey) === token) {
@@ -216,9 +280,11 @@ function App() {
     clearError();
     setSelected(null);
     setOrganizerPage(null);
+    setNotificationsOpen(false);
     setView(target);
     window.scrollTo({ top: 0 });
     if (target === "archive") loadArchive(1);
+    if (target === "announcements") loadAnnouncements();
     if (["my-rsvps", "saved", "my-calendar"].includes(target)) loadMyLists();
     if (target === "organizers") loadOrganizers();
   };
@@ -266,7 +332,7 @@ function App() {
       setSelected(null);
       setAuthOpen(false);
       setNotice(`Welcome${data.user?.name ? `, ${data.user.name}` : ""}!`);
-      await loadMyLists();
+      await Promise.all([loadMyLists(), loadNotifications(), loadAnnouncements()]);
     } catch (err) {
       showError(
         err.response?.data?.message ||
@@ -300,9 +366,13 @@ function App() {
       setCalendarList([]);
       setView("discover");
       setSelected(null);
+      setNotifications([]);
+      setNotificationsUnread(0);
+      setNotificationsOpen(false);
       setNotice("You have logged out.");
       if (logoutError) showError(logoutError);
       setLoggingOut(false);
+      loadAnnouncements();
     }
   };
 
@@ -389,6 +459,105 @@ function App() {
     setSort("soonest");
   };
 
+  const resetAnnouncementFilters = () => {
+    setAnnouncementCourse("");
+    setAnnouncementOrganizer("");
+    setAnnouncementSearch("");
+  };
+
+  const markAnnouncementRead = async (announcement) => {
+    if (!isLoggedIn() || announcement.is_read) return;
+    clearError();
+    setAnnouncementBusyId(announcement.id);
+    try {
+      const { data } = await http.post(`/announcements/${announcement.id}/read`);
+      setAnnouncements((current) =>
+        current.map((item) =>
+          item.id === announcement.id ? { ...item, is_read: true } : item,
+        ),
+      );
+      setUnreadAnnouncements(data.unread_count || 0);
+    } catch {
+      showError("Could not mark that announcement as read. Please try again.");
+    } finally {
+      setAnnouncementBusyId(null);
+    }
+  };
+
+  const reactToAnnouncement = async (announcement, emoji) => {
+    if (!isLoggedIn()) return requireLogin("Log in to react to announcements.");
+    clearError();
+    setNotice("");
+    setAnnouncementBusyId(announcement.id);
+    try {
+      const { data } = await http.post(`/announcements/${announcement.id}/react`, {
+        emoji,
+      });
+      setAnnouncements((current) =>
+        current.map((item) =>
+          item.id === announcement.id
+            ? {
+                ...item,
+                is_read: true,
+                reactions: data.reactions,
+                reaction_count: data.reaction_count,
+              }
+            : item,
+        ),
+      );
+      setUnreadAnnouncements(data.unread_count || 0);
+    } catch {
+      showError("Could not update your reaction. Please try again.");
+    } finally {
+      setAnnouncementBusyId(null);
+    }
+  };
+
+  const toggleNotifications = () => {
+    if (!isLoggedIn()) return requireLogin("Log in to see your notifications.");
+    if (!notificationsOpen) loadNotifications();
+    setNotificationsOpen((open) => !open);
+  };
+
+  const openNotification = (notification) => {
+    setNotificationsOpen(false);
+    setAnnouncementCourse("");
+    setAnnouncementOrganizer("");
+    setAnnouncementSearch("");
+    if (notification && !notification.read_at) {
+      http
+        .post(`/notifications/${notification.id}/read`)
+        .then(({ data }) => {
+          setNotificationsUnread(data.unread_count || 0);
+          setNotifications((current) =>
+            current.map((item) =>
+              item.id === notification.id
+                ? { ...item, read_at: new Date().toISOString() }
+                : item,
+            ),
+          );
+        })
+        .catch(() => {});
+    }
+    go("announcements");
+  };
+
+  const markAllNotificationsRead = async () => {
+    clearError();
+    try {
+      const { data } = await http.post("/notifications/read-all");
+      setNotificationsUnread(data.unread_count || 0);
+      setNotifications((current) =>
+        current.map((item) => ({
+          ...item,
+          read_at: item.read_at || new Date().toISOString(),
+        })),
+      );
+    } catch {
+      showError("Could not mark your notifications as read. Please try again.");
+    }
+  };
+
   // Props shared by every EventCard.
   const cardProps = (event) => ({
     prettyDate,
@@ -410,6 +579,11 @@ function App() {
         user={user}
         isLoggingOut={loggingOut}
         view={view}
+        notifications={notifications}
+        notificationsUnread={notificationsUnread}
+        notificationsOpen={notificationsOpen}
+        notificationsLoading={notificationsLoading}
+        prettyDate={prettyDate}
         onNavigate={go}
         onLogin={() => {
           setAuthMode("login");
@@ -417,6 +591,10 @@ function App() {
           clearError();
         }}
         onLogout={logout}
+        onToggleNotifications={toggleNotifications}
+        onCloseNotifications={() => setNotificationsOpen(false)}
+        onMarkAllNotificationsRead={markAllNotificationsRead}
+        onOpenNotifications={openNotification}
       />
       <main id="top">
         {view === "discover" && (
@@ -529,6 +707,30 @@ function App() {
             cardProps={cardProps}
             onResetFilters={resetFilters}
             onPage={loadEvents}
+          />
+        )}
+        {view === "announcements" && (
+          <AnnouncementsView
+            announcements={announcements}
+            loading={announcementsLoading}
+            course={announcementCourse}
+            setCourse={setAnnouncementCourse}
+            organizer={announcementOrganizer}
+            setOrganizer={setAnnouncementOrganizer}
+            organizers={organizers}
+            search={announcementSearch}
+            setSearch={setAnnouncementSearch}
+            emojis={announcementEmojis}
+            unreadCount={unreadAnnouncements}
+            user={user}
+            busyId={announcementBusyId}
+            prettyDate={prettyDate}
+            onMarkRead={markAnnouncementRead}
+            onReact={reactToAnnouncement}
+            onOpenOrganizer={openOrganizer}
+            onLogin={() => requireLogin("Log in to react to announcements.")}
+            onReset={resetAnnouncementFilters}
+            onReload={loadAnnouncements}
           />
         )}
         {view === "organizers" && (
