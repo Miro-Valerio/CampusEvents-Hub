@@ -50,14 +50,14 @@ export default function AppHeader({
       {label}
     </a>
   );
-  const menuLink = (target, label) => (
+  const menuLink = (target, label, requiresLogin = true) => (
     <a
       className={view === target ? "active" : ""}
       href={`#${target}`}
       onClick={(event) => {
         event.preventDefault();
         setMenuOpen(false);
-        onNavigate(target, true);
+        onNavigate(target, requiresLogin);
       }}
     >
       {label}
@@ -102,49 +102,57 @@ export default function AppHeader({
               onOpenAnnouncements={onOpenNotifications}
             />
             <span className="user-name">Hi, {user.name}</span>
-            <div className="mobile-menu-wrap" ref={menuRef}>
-              <button
-                className="mobile-menu-toggle"
-                type="button"
-                aria-label={menuOpen ? "Close navigation menu" : "Open navigation menu"}
-                aria-expanded={menuOpen}
-                aria-controls="mobile-navigation-menu"
-                onClick={() => setMenuOpen((open) => !open)}
-              >
-                {menuOpen ? <X size={21} /> : <Menu size={21} />}
-              </button>
-              {menuOpen && (
-                <div className="mobile-navigation-menu" id="mobile-navigation-menu">
-                  {menuLink("archive", "Archive")}
-                  {user?.role === "student" && (
-                    <>
-                      {menuLink("my-rsvps", "My RSVPs")}
-                      {menuLink("check-in-history", "Check-in history")}
-                      {menuLink("saved", "Bookmarks")}
-                      {menuLink("my-calendar", "My list")}
-                    </>
-                  )}
-                  {user?.role === "organizer" && menuLink("dashboard", "Organizer Dashboard")}
-                  <button type="button" onClick={() => {
-                    setMenuOpen(false);
-                    onLogout();
-                  }} disabled={isLoggingOut}>
-                    {isLoggingOut ? (
-                      <Loader2 size={16} className="auth-spinner" aria-hidden="true" />
-                    ) : (
-                      <LogOut size={16} />
-                    )}
-                    {isLoggingOut ? "Logging out..." : "Log out"}
-                  </button>
-                </div>
-              )}
-            </div>
           </>
         ) : (
           <button className="btn btn-primary" onClick={onLogin}>
             <LogIn size={16} /> Log in
           </button>
         )}
+        <div className="mobile-menu-wrap" ref={menuRef}>
+          <button
+            className="mobile-menu-toggle"
+            type="button"
+            aria-label={menuOpen ? "Close navigation menu" : "Open navigation menu"}
+            aria-expanded={menuOpen}
+            aria-controls="mobile-navigation-menu"
+            onClick={() => setMenuOpen((open) => !open)}
+          >
+            {menuOpen ? <X size={21} /> : <Menu size={21} />}
+          </button>
+          {menuOpen && (
+            <div className="mobile-navigation-menu" id="mobile-navigation-menu">
+              <div className="mobile-menu-primary">
+                {menuLink("discover", "Discover", false)}
+                {menuLink("announcements", "Announcements", false)}
+                {menuLink("organizers", "Organizers", false)}
+                {menuLink("calendar", "Calendar", false)}
+              </div>
+              {menuLink("archive", "Archive", false)}
+              {user?.role === "student" && (
+                <>
+                  {menuLink("my-rsvps", "My RSVPs")}
+                  {menuLink("check-in-history", "Check-in history")}
+                  {menuLink("saved", "Bookmarks")}
+                  {menuLink("my-calendar", "My list")}
+                </>
+              )}
+              {user?.role === "organizer" && menuLink("dashboard", "Organizer Dashboard")}
+              {user && (
+                <button type="button" onClick={() => {
+                  setMenuOpen(false);
+                  onLogout();
+                }} disabled={isLoggingOut}>
+                  {isLoggingOut ? (
+                    <Loader2 size={16} className="auth-spinner" aria-hidden="true" />
+                  ) : (
+                    <LogOut size={16} />
+                  )}
+                  {isLoggingOut ? "Logging out..." : "Log out"}
+                </button>
+              )}
+            </div>
+          )}
+        </div>
       </div>
     </header>
   );

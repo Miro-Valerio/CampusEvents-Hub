@@ -116,11 +116,19 @@
   right: 0;
   display: grid;
   min-width: 210px;
+  max-height: calc(100vh - 100px);
+  max-height: calc(100dvh - 100px);
+  overflow-y: auto;
+  overscroll-behavior: contain;
   padding: 8px;
   border: 1px solid var(--border);
   border-radius: 14px;
   background: #fff;
   box-shadow: 0 12px 30px rgba(74, 22, 13, 0.16);
+}
+
+.mobile-menu-primary {
+  display: none;
 }
 
 .mobile-navigation-menu a,
@@ -145,6 +153,12 @@
 .mobile-navigation-menu button:hover {
   background: var(--peach-soft);
   color: var(--red);
+}
+
+@media (max-width: 760px) {
+  .mobile-menu-primary {
+    display: grid;
+  }
 }
 
 .mobile-navigation-menu button {
