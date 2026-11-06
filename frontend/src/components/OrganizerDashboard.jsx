@@ -68,17 +68,30 @@ function errorMessage(error) {
   );
 }
 
+function readDashboardCache(organizerId) {
+  if (!organizerId) return null;
+  try {
+    const cached = sessionStorage.getItem(`ceh_dashboard_v1:${organizerId}`);
+    return cached ? JSON.parse(cached) : null;
+  } catch {
+    return null;
+  }
+}
+
 export default function OrganizerDashboard({
   http,
   organizer,
   onProfileChange,
   onNotice,
 }) {
-  const [events, setEvents] = useState([]);
-  const [announcements, setAnnouncements] = useState([]);
+  const [initialDashboard] = useState(() => readDashboardCache(organizer?.id));
+  const [events, setEvents] = useState(() => initialDashboard?.events || []);
+  const [announcements, setAnnouncements] = useState(
+    () => initialDashboard?.announcements || [],
+  );
   const [announcementForm, setAnnouncementForm] = useState(emptyAnnouncement);
-  const [stats, setStats] = useState(null);
-  const [loading, setLoading] = useState(true);
+  const [stats, setStats] = useState(() => initialDashboard?.stats || null);
+  const [loading, setLoading] = useState(() => !initialDashboard);
   const [loadFailed, setLoadFailed] = useState(false);
   const [dashboardError, setDashboardError] = useState(null);
   const [validationMessages, setValidationMessages] = useState([]);
@@ -96,7 +109,8 @@ export default function OrganizerDashboard({
   const [photoForm, setPhotoForm] = useState({ url: "", caption: "" });
 
   const loadDashboard = async () => {
-    setLoading(true);
+    const hasDashboardData = Boolean(stats) || events.length > 0 || announcements.length > 0;
+    setLoading(!hasDashboardData);
     setLoadFailed(false);
     setDashboardError(null);
     setValidationMessages([]);
@@ -109,8 +123,20 @@ export default function OrganizerDashboard({
       setEvents(eventResponse.data.data || []);
       setStats(statsResponse.data);
       setAnnouncements(announcementResponse.data.data || []);
+      try {
+        sessionStorage.setItem(
+          `ceh_dashboard_v1:${organizer.id}`,
+          JSON.stringify({
+            events: eventResponse.data.data || [],
+            stats: statsResponse.data,
+            announcements: announcementResponse.data.data || [],
+          }),
+        );
+      } catch {
+        // The dashboard continues to work when browser storage is unavailable or full.
+      }
     } catch (error) {
-      setLoadFailed(true);
+      setLoadFailed(!hasDashboardData);
       setDashboardError({ message: errorMessage(error), retry: loadDashboard });
     } finally {
       setLoading(false);

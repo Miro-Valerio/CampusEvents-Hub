@@ -43,6 +43,32 @@ import "./css/responsive.css";
 const API = import.meta.env.VITE_API_URL || "http://127.0.0.1:8000/api";
 const http = axios.create({ baseURL: API });
 const tokenKey = "ceh_token";
+const publicCachePrefix = "ceh_public_cache_v1:";
+const readCache = (key) => {
+  try {
+    const cached = localStorage.getItem(key);
+    return cached ? JSON.parse(cached) : null;
+  } catch {
+    return null;
+  }
+};
+const writeCache = (key, value) => {
+  try {
+    localStorage.setItem(key, JSON.stringify(value));
+  } catch {
+    // The app remains usable when browser storage is unavailable or full.
+  }
+};
+const eventsCacheKey = (params) =>
+  `${publicCachePrefix}events:${new URLSearchParams(params).toString()}`;
+const defaultEventsParams = {
+  search: "",
+  date: "",
+  category: "",
+  organizer_id: "",
+  sort: "soonest",
+  page: 1,
+};
 // Attach the saved Sanctum token to protected API requests.
 http.interceptors.request.use((config) => {
   const token = localStorage.getItem(tokenKey);
@@ -60,15 +86,23 @@ function App() {
   const [backView, setBackView] = useState("discover");
 
   // Discovery filters and results.
-  const [events, setEvents] = useState([]);
-  const [pagination, setPagination] = useState({});
+  const [events, setEvents] = useState(
+    () => readCache(eventsCacheKey(defaultEventsParams))?.data || [],
+  );
+  const [pagination, setPagination] = useState(
+    () => readCache(eventsCacheKey(defaultEventsParams))?.pagination || {},
+  );
   const [search, setSearch] = useState("");
   const [date, setDate] = useState("");
   const [category, setCategory] = useState("");
   const [organizer, setOrganizer] = useState("");
   const [sort, setSort] = useState("soonest");
-  const [organizers, setOrganizers] = useState([]);
-  const [organizersLoading, setOrganizersLoading] = useState(false);
+  const [organizers, setOrganizers] = useState(
+    () => readCache(`${publicCachePrefix}organizers`) || [],
+  );
+  const [organizersLoading, setOrganizersLoading] = useState(
+    () => !readCache(`${publicCachePrefix}organizers`),
+  );
   const [loading, setLoading] = useState(false);
 
   // Archive (past events).
@@ -142,14 +176,18 @@ function App() {
 
   // ---------- data loading ----------
   const loadEvents = async (page = 1) => {
-    setLoading(true);
+    const params = { search, date, category, organizer_id: organizer, sort, page };
+    const cacheKey = eventsCacheKey(params);
+    const hasCachedResults = Boolean(readCache(cacheKey));
+    setLoading(!hasCachedResults);
     clearError();
     try {
       const { data } = await http.get("/events", {
-        params: { search, date, category, organizer_id: organizer, sort, page },
+        params,
       });
       setEvents(data.data || []);
       setPagination(data);
+      writeCache(cacheKey, { data: data.data || [], pagination: data });
     } catch {
       showError(
         "We couldn’t load events. Check that the Laravel API is running, then try again.",
@@ -160,10 +198,12 @@ function App() {
     }
   };
   const loadOrganizers = async () => {
-    setOrganizersLoading(true);
+    const hasCachedOrganizers = Boolean(readCache(`${publicCachePrefix}organizers`));
+    setOrganizersLoading(!hasCachedOrganizers);
     try {
       const { data } = await http.get("/organizers");
       setOrganizers(data.data || []);
+      writeCache(`${publicCachePrefix}organizers`, data.data || []);
     } catch {
       showError("Could not load organizers. Please retry.", loadOrganizers);
     } finally {
