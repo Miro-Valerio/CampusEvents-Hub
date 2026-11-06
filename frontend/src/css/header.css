@@ -82,6 +82,18 @@
   display: flex;
   align-items: center;
   gap: 14px;
+  animation: account-state-transition 220ms ease both;
+}
+
+@keyframes account-state-transition {
+  from {
+    opacity: 0;
+    transform: translateY(-5px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }
 
 .user-name {
@@ -96,6 +108,12 @@
 .mobile-menu-wrap {
   display: block;
   position: relative;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .account {
+    animation: none;
+  }
 }
 
 .mobile-menu-toggle {
