@@ -66,33 +66,46 @@ export default function NotificationBell({
             <div className="notification-empty">
               <Bell size={20} />
               <span>No notifications yet.</span>
-              <small>New announcements will show up here.</small>
+              <small>Campus updates, event reminders, and schedule changes will show up here.</small>
             </div>
           ) : (
             <div className="notification-list">
-              {notifications.map((notification) => (
-                <button
-                  type="button"
-                  className={`notification-item${notification.read_at ? "" : " unread"}`}
-                  key={notification.id}
-                  onClick={() => onOpenAnnouncements(notification)}
-                >
-                  <span className="notification-dot" />
-                  <span className="notification-copy">
-                    <b>{notification.data?.title || "Campus announcement"}</b>
-                    <p>{notification.data?.message}</p>
-                    <small>
-                      {notification.data?.organizer || "SPC Campus"}
-                      {notification.data?.course
-                        ? ` · ${notification.data.course}`
-                        : " · Campus-wide"}
-                      {notification.created_at
-                        ? ` · ${prettyDate(notification.created_at)}`
-                        : ""}
-                    </small>
-                  </span>
-                </button>
-              ))}
+              {notifications.map((notification) => {
+                const data = notification.data || {};
+                const message =
+                  data.kind === "event_time_changed"
+                    ? `New start: ${prettyDate(data.starts_at)}`
+                    : data.kind === "event_reminder"
+                      ? `Starts at ${prettyDate(data.starts_at)}`
+                      : data.message;
+
+                return (
+                  <button
+                    type="button"
+                    className={`notification-item${notification.read_at ? "" : " unread"}`}
+                    key={notification.id}
+                    onClick={() => onOpenAnnouncements(notification)}
+                  >
+                    <span className="notification-dot" />
+                    <span className="notification-copy">
+                      <b>{data.title || "Campus announcement"}</b>
+                      <p>{message}</p>
+                      <small>
+                        {data.organizer ||
+                          (data.kind?.startsWith("event_") ? "Campus event" : "SPC Campus")}
+                        {data.course
+                          ? ` · ${data.course}`
+                          : data.kind?.startsWith("event_")
+                            ? ""
+                            : " · Campus-wide"}
+                        {notification.created_at
+                          ? ` · ${prettyDate(notification.created_at)}`
+                          : ""}
+                      </small>
+                    </span>
+                  </button>
+                );
+              })}
             </div>
           )}
 

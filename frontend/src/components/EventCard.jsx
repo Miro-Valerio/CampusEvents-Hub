@@ -85,6 +85,14 @@ export default function EventCard({
         {myRsvp ? (
           <div className="rsvp-seat-number">
             Your seat: <strong>#{event.seat_number}</strong>
+            <br />
+            Check-in code: <strong>{event.check_in_code}</strong>
+            {event.checked_in_at && (
+              <>
+                <br />
+                Checked in: <strong>{new Date(event.checked_in_at).toLocaleString()}</strong>
+              </>
+            )}
           </div>
         ) : null}
         <div className="seat-row">

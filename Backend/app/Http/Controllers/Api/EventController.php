@@ -9,6 +9,7 @@ use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
 
 class EventController extends Controller
@@ -63,7 +64,7 @@ class EventController extends Controller
     public function calendar(Request $request): JsonResponse
     {
         $data = $request->validate(['month' => ['nullable', 'date_format:Y-m']]);
-        $start = \Illuminate\Support\Carbon::createFromFormat('Y-m-d', ($data['month'] ?? now()->format('Y-m')).'-01')->startOfMonth();
+        $start = Carbon::createFromFormat('Y-m-d', ($data['month'] ?? now()->format('Y-m')).'-01')->startOfMonth();
 
         $events = Event::with('organizer:id,name')
             ->withCount(['rsvps as active_rsvps_count' => fn (Builder $query) => $query->where('status', Rsvp::STATUS_GOING)])
@@ -173,6 +174,7 @@ class EventController extends Controller
                 return [
                     'created' => false,
                     'seat_number' => $rsvp->seat_number,
+                    'check_in_code' => $rsvp->checkInCode(),
                     'registered_count' => $lockedEvent->baseline_registered_count
                         + $lockedEvent->rsvps()->where('status', Rsvp::STATUS_GOING)->count(),
                 ];
@@ -198,19 +200,22 @@ class EventController extends Controller
             }
 
             if ($rsvp) {
-                $rsvp->update([
+                $rsvp->forceFill([
                     'status' => Rsvp::STATUS_GOING,
                     'seat_number' => $seatNumber,
-                ]);
+                    'checked_in_at' => null,
+                    'check_in_code_salt' => bin2hex(random_bytes(16)),
+                ])->save();
 
                 return [
                     'created' => true,
                     'seat_number' => $seatNumber,
+                    'check_in_code' => $rsvp->checkInCode(),
                     'registered_count' => $registeredCount + 1,
                 ];
             }
 
-            $lockedEvent->rsvps()->create([
+            $rsvp = $lockedEvent->rsvps()->create([
                 'user_id' => $request->user()->id,
                 'status' => Rsvp::STATUS_GOING,
                 'seat_number' => $seatNumber,
@@ -219,6 +224,7 @@ class EventController extends Controller
             return [
                 'created' => true,
                 'seat_number' => $seatNumber,
+                'check_in_code' => $rsvp->checkInCode(),
                 'registered_count' => $registeredCount + 1,
             ];
         });
@@ -230,6 +236,7 @@ class EventController extends Controller
         return response()->json([
             'rsvped' => true,
             'seat_number' => $rsvpResult['seat_number'],
+            'check_in_code' => $rsvpResult['check_in_code'],
             'registered_count' => $rsvpResult['registered_count'],
             'message' => $rsvpResult['created'] ? 'You are registered for this event.' : 'You are already registered for this event.',
         ], $rsvpResult['created'] ? 201 : 200);
@@ -269,17 +276,39 @@ class EventController extends Controller
                 ->where('user_id', $request->user()->id)
                 ->where('status', Rsvp::STATUS_GOING))
             ->with(['rsvps' => fn (HasMany $query) => $query
-                ->select('id', 'event_id', 'seat_number')
+                ->select('id', 'event_id', 'seat_number', 'checked_in_at', 'check_in_code_salt')
                 ->where('user_id', $request->user()->id)
                 ->where('status', Rsvp::STATUS_GOING)])
             ->orderBy('starts_at')
             ->get();
 
         $events->each(function (Event $event): void {
-            $event->setAttribute('seat_number', $event->rsvps->first()?->seat_number);
+            $rsvp = $event->rsvps->first();
+            $event->setAttribute('seat_number', $rsvp?->seat_number);
+            $event->setAttribute('check_in_code', $rsvp?->checkInCode());
+            $event->setAttribute('checked_in_at', $rsvp?->checked_in_at);
             $event->unsetRelation('rsvps');
         });
 
         return response()->json(['data' => $events]);
+    }
+
+    public function myCheckIns(Request $request): JsonResponse
+    {
+        $checkIns = Rsvp::query()
+            ->where('user_id', $request->user()->id)
+            ->whereNotNull('checked_in_at')
+            ->whereHas('event', fn (Builder $query) => $query
+                ->whereRaw('COALESCE(ends_at, starts_at) < ?', [now()]))
+            ->with(['event.organizer'])
+            ->orderByDesc('checked_in_at')
+            ->get()
+            ->map(fn (Rsvp $rsvp): array => [
+                'event' => $rsvp->event,
+                'checked_in_at' => $rsvp->checked_in_at,
+                'seat_number' => $rsvp->seat_number,
+            ]);
+
+        return response()->json(['data' => $checkIns]);
     }
 }

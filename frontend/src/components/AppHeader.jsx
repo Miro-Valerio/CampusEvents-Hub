@@ -57,6 +57,7 @@ export default function AppHeader({
         {link("archive", "Archive")}
         {user?.role === "organizer" && link("dashboard", "Organizer Dashboard")}
         {user?.role === "student" && link("my-rsvps", "My RSVPs")}
+        {user?.role === "student" && link("check-in-history", "Check-in history")}
         {user?.role === "student" && link("saved", "Bookmarks")}
         {user?.role === "student" && link("my-calendar", "My list")}
       </nav>

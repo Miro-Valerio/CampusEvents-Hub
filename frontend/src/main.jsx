@@ -14,6 +14,7 @@ import AnnouncementsView from "./components/AnnouncementsView";
 import AuthModal from "./components/AuthModal";
 import ArchiveView from "./components/ArchiveView";
 import CalendarView from "./components/CalendarView";
+import CheckInHistoryView from "./components/CheckInHistoryView";
 import EventDiscoveryView from "./components/EventDiscoveryView";
 import EventListView from "./components/EventListView";
 import EventPage from "./components/EventPage";
@@ -80,6 +81,8 @@ function App() {
   const [myRsvps, setMyRsvps] = useState([]);
   const [saved, setSaved] = useState([]);
   const [calendarList, setCalendarList] = useState([]);
+  const [checkIns, setCheckIns] = useState([]);
+  const [checkInsLoading, setCheckInsLoading] = useState(false);
   const [listLoading, setListLoading] = useState(false);
   const [rsvpBusyEventId, setRsvpBusyEventId] = useState(null);
   const [seatConfirmation, setSeatConfirmation] = useState(null);
@@ -196,6 +199,17 @@ function App() {
       setListLoading(false);
     }
   };
+  const loadCheckIns = async () => {
+    setCheckInsLoading(true);
+    try {
+      const { data } = await http.get("/my-checkins");
+      setCheckIns(data.data || []);
+    } catch {
+      showError("Could not load your check-in history. Please retry.", loadCheckIns);
+    } finally {
+      setCheckInsLoading(false);
+    }
+  };
 
   const loadAnnouncements = async () => {
     setAnnouncementsLoading(true);
@@ -286,6 +300,7 @@ function App() {
     if (target === "archive") loadArchive(1);
     if (target === "announcements") loadAnnouncements();
     if (["my-rsvps", "saved", "my-calendar"].includes(target)) loadMyLists();
+    if (target === "check-in-history") loadCheckIns();
     if (target === "organizers") loadOrganizers();
   };
   useEffect(() => {
@@ -364,6 +379,7 @@ function App() {
       setMyRsvps([]);
       setSaved([]);
       setCalendarList([]);
+      setCheckIns([]);
       setView("discover");
       setSelected(null);
       setNotifications([]);
@@ -521,6 +537,25 @@ function App() {
 
   const openNotification = (notification) => {
     setNotificationsOpen(false);
+    if (notification?.data?.event_id) {
+      if (notification && !notification.read_at) {
+        http
+          .post(`/notifications/${notification.id}/read`)
+          .then(({ data }) => {
+            setNotificationsUnread(data.unread_count || 0);
+            setNotifications((current) =>
+              current.map((item) =>
+                item.id === notification.id
+                  ? { ...item, read_at: new Date().toISOString() }
+                  : item,
+              ),
+            );
+          })
+          .catch(() => showError("Could not mark your notification as read."));
+      }
+      openEvent({ id: notification.data.event_id });
+      return;
+    }
     setAnnouncementCourse("");
     setAnnouncementOrganizer("");
     setAnnouncementSearch("");
@@ -537,7 +572,7 @@ function App() {
             ),
           );
         })
-        .catch(() => {});
+        .catch(() => showError("Could not mark your notification as read."));
     }
     go("announcements");
   };
@@ -804,6 +839,14 @@ function App() {
             myRsvp
             onRefresh={loadMyLists}
             onBrowse={() => go("discover")}
+          />
+        )}
+        {view === "check-in-history" && (
+          <CheckInHistoryView
+            checkIns={checkIns}
+            loading={checkInsLoading}
+            prettyDate={prettyDate}
+            onRefresh={loadCheckIns}
           />
         )}
         {view === "saved" && (

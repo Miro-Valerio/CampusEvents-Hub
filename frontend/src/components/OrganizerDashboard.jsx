@@ -90,6 +90,7 @@ export default function OrganizerDashboard({
     description: organizer?.description || "",
   });
   const [attendees, setAttendees] = useState({});
+  const [checkInCodes, setCheckInCodes] = useState({});
   const [photoEventId, setPhotoEventId] = useState(null);
   const [photoForm, setPhotoForm] = useState({ url: "", caption: "" });
 
@@ -264,6 +265,29 @@ export default function OrganizerDashboard({
     }
   };
 
+  const checkInAttendee = async (eventId) => {
+    const code = (checkInCodes[eventId] || "").trim();
+    if (!code) return;
+    setBusy(`check-in-${eventId}`);
+    setDashboardError(null);
+    setValidationMessages([]);
+    try {
+      const { data } = await http.post(`/organizer/events/${eventId}/check-in`, { code });
+      setAttendees((current) => ({
+        ...current,
+        [eventId]: current[eventId].map((attendee) =>
+          attendee.id === data.data.id ? data.data : attendee,
+        ),
+      }));
+      setCheckInCodes((current) => ({ ...current, [eventId]: "" }));
+      onNotice(data.message);
+    } catch (error) {
+      reportError(error, () => checkInAttendee(eventId));
+    } finally {
+      setBusy("");
+    }
+  };
+
   const addPhoto = async (event) => {
     setBusy(`photo-${event.id}`);
     setDashboardError(null);
@@ -298,12 +322,13 @@ export default function OrganizerDashboard({
 
   const downloadAttendees = (eventId, eventTitle) => {
     const rows = [
-      ["Name", "Email", "Seat number", "Status"],
+      ["Name", "Email", "Seat number", "Status", "Checked in at"],
       ...attendees[eventId].map((attendee) => [
         attendee.name,
         attendee.email,
         attendee.seat_number,
         attendee.status,
+        attendee.checked_in_at,
       ]),
     ];
     const csv = rows
@@ -757,6 +782,36 @@ export default function OrganizerDashboard({
                       <strong>Attendees</strong>
                       {attendees[event.id].length ? (
                         <>
+                          <form
+                            className="dashboard-check-in-form"
+                            onSubmit={(submit) => {
+                              submit.preventDefault();
+                              checkInAttendee(event.id);
+                            }}
+                          >
+                            <label>
+                              Attendee check-in code
+                              <input
+                                value={checkInCodes[event.id] || ""}
+                                onChange={(change) =>
+                                  setCheckInCodes((current) => ({
+                                    ...current,
+                                    [event.id]: change.target.value.toUpperCase(),
+                                  }))
+                                }
+                                placeholder="Enter the attendee’s code"
+                                maxLength={10}
+                                required
+                              />
+                            </label>
+                            <button
+                              className="btn btn-primary"
+                              type="submit"
+                              disabled={busy === `check-in-${event.id}`}
+                            >
+                              {busy === `check-in-${event.id}` ? "Checking in…" : "Check in"}
+                            </button>
+                          </form>
                           <div className="dashboard-attendee-actions">
                             <button
                               className="btn btn-outline"
@@ -769,7 +824,14 @@ export default function OrganizerDashboard({
                             {attendees[event.id].map((attendee, index) => (
                               <div key={`${event.id}-${attendee.seat_number}-${index}`}>
                                 <span>{attendee.name} <small>{attendee.email}</small></span>
-                                <span>Seat {attendee.seat_number ?? "—"} · {attendee.status}</span>
+                                <span>
+                                  Seat {attendee.seat_number ?? "—"} · {attendee.status}
+                                  <small>
+                                    {attendee.checked_in_at
+                                      ? `Checked in ${new Date(attendee.checked_in_at).toLocaleString()}`
+                                      : "Not checked in"}
+                                  </small>
+                                </span>
                               </div>
                             ))}
                           </div>

@@ -34,6 +34,7 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::post('/notifications/read-all', [NotificationController::class, 'markAllRead']);
     Route::post('/notifications/{notification}/read', [NotificationController::class, 'markRead']);
     Route::get('/my-rsvps', [EventController::class, 'myRsvps']);
+    Route::get('/my-checkins', [EventController::class, 'myCheckIns']);
     Route::get('/my-saves', [EventController::class, 'mySaves']);
     Route::get('/my-calendar', [EventController::class, 'myCalendar']);
     Route::post('/events/{event}/calendar', [EventController::class, 'toggleCalendar']);
@@ -53,6 +54,7 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::put('/events/{event}', [OrganizerDashboardController::class, 'update']);
         Route::delete('/events/{event}', [OrganizerDashboardController::class, 'destroy']);
         Route::get('/events/{event}/attendees', [OrganizerDashboardController::class, 'attendees']);
+        Route::post('/events/{event}/check-in', [OrganizerDashboardController::class, 'checkIn'])->middleware('throttle:30,1');
         Route::post('/events/{event}/photos', [OrganizerDashboardController::class, 'storePhoto']);
         Route::delete('/photos/{photo}', [OrganizerDashboardController::class, 'destroyPhoto']);
         Route::get('/stats', [OrganizerDashboardController::class, 'stats']);
