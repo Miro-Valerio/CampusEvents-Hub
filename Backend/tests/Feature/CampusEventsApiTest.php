@@ -241,6 +241,41 @@ class CampusEventsApiTest extends TestCase
         $this->assertDatabaseMissing('events', ['id' => $eventId]);
     }
 
+    public function test_organizer_event_times_remain_in_philippine_local_time_when_edited(): void
+    {
+        [$user] = $this->createOrganizer();
+        $token = $user->createToken('feature-test')->plainTextToken;
+        $eventData = $this->eventData([
+            'starts_at' => '2030-01-15T00:50',
+            'ends_at' => '2030-01-15T01:00',
+        ]);
+
+        $created = $this->withToken($token)
+            ->postJson('/api/organizer/events', $eventData)
+            ->assertCreated();
+
+        $eventId = $created->json('id');
+        $this->assertSame(
+            '2030-01-14T16:50:00.000000Z',
+            $created->json('starts_at'),
+        );
+        $this->assertSame(
+            '2030-01-14T17:00:00.000000Z',
+            $created->json('ends_at'),
+        );
+        $this->assertDatabaseHas('events', [
+            'id' => $eventId,
+            'starts_at' => '2030-01-15 00:50:00',
+            'ends_at' => '2030-01-15 01:00:00',
+        ]);
+
+        $this->withToken($token)
+            ->putJson("/api/organizer/events/{$eventId}", $eventData)
+            ->assertOk()
+            ->assertJsonPath('starts_at', '2030-01-14T16:50:00.000000Z')
+            ->assertJsonPath('ends_at', '2030-01-14T17:00:00.000000Z');
+    }
+
     public function test_organizer_can_upload_and_replace_an_event_poster(): void
     {
         Storage::fake('public');
