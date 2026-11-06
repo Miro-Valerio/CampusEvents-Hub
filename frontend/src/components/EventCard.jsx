@@ -84,14 +84,19 @@ export default function EventCard({
         </div>
         {myRsvp ? (
           <div className="rsvp-seat-number">
-            Your seat: <strong>#{event.seat_number}</strong>
-            <br />
-            Check-in code: <strong>{event.check_in_code}</strong>
+            <div className="rsvp-detail">
+              <span>Your seat</span>
+              <strong>#{event.seat_number}</strong>
+            </div>
+            <div className="rsvp-detail">
+              <span>Check-in code</span>
+              <strong className="rsvp-check-in-code">{event.check_in_code}</strong>
+            </div>
             {event.checked_in_at && (
-              <>
-                <br />
-                Checked in: <strong>{new Date(event.checked_in_at).toLocaleString()}</strong>
-              </>
+              <div className="rsvp-detail rsvp-checked-in">
+                <span>Checked in</span>
+                <strong>{new Date(event.checked_in_at).toLocaleString()}</strong>
+              </div>
             )}
           </div>
         ) : null}

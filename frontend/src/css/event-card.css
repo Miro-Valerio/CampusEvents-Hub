@@ -148,10 +148,9 @@
 }
 
 .rsvp-seat-number {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 12px;
+  display: grid;
+  grid-template-columns: minmax(0, 0.7fr) minmax(0, 1.3fr);
+  gap: 12px 16px;
   margin: 16px 0;
   padding: 13px 15px;
   border: 1px solid #e9b7a7;
@@ -161,10 +160,37 @@
   font-size: 12px;
 }
 
+.rsvp-detail {
+  display: grid;
+  gap: 4px;
+  min-width: 0;
+}
+
+.rsvp-detail > span {
+  color: #7e5146;
+  line-height: 1.35;
+}
+
 .rsvp-seat-number strong {
   font-family: "Manrope", sans-serif;
   color: var(--red);
   font-size: 20px;
+  overflow-wrap: anywhere;
+}
+
+.rsvp-seat-number .rsvp-check-in-code {
+  font-size: clamp(14px, 4vw, 18px);
+  letter-spacing: 0.015em;
+}
+
+.rsvp-seat-number .rsvp-checked-in {
+  grid-column: 1 / -1;
+  padding-top: 10px;
+  border-top: 1px solid #e9b7a7;
+}
+
+.rsvp-seat-number .rsvp-checked-in strong {
+  font-size: 15px;
 }
 
 .details-link {
