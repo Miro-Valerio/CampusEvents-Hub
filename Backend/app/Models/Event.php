@@ -7,6 +7,7 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Support\Str;
 
 class Event extends Model
 {
@@ -15,9 +16,30 @@ class Event extends Model
     protected $fillable = [
         'title', 'description', 'poster_url', 'venue', 'starts_at', 'ends_at',
         'category', 'rules', 'capacity', 'baseline_registered_count', 'organizer_id',
+        'check_in_code',
     ];
 
+    protected $hidden = ['check_in_code'];
+
     protected $casts = ['starts_at' => 'datetime', 'ends_at' => 'datetime'];
+
+    protected static function booted(): void
+    {
+        static::creating(function (Event $event): void {
+            if (blank($event->check_in_code)) {
+                $event->check_in_code = self::generateCheckInCode();
+            }
+        });
+    }
+
+    public static function generateCheckInCode(): string
+    {
+        do {
+            $code = Str::upper(Str::random(8));
+        } while (self::query()->where('check_in_code', $code)->exists());
+
+        return $code;
+    }
 
     protected function registeredCount(): Attribute
     {

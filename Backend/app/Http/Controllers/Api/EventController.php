@@ -9,6 +9,7 @@ use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
 
 class EventController extends Controller
@@ -63,7 +64,7 @@ class EventController extends Controller
     public function calendar(Request $request): JsonResponse
     {
         $data = $request->validate(['month' => ['nullable', 'date_format:Y-m']]);
-        $start = \Illuminate\Support\Carbon::createFromFormat('Y-m-d', ($data['month'] ?? now()->format('Y-m')).'-01')->startOfMonth();
+        $start = Carbon::createFromFormat('Y-m-d', ($data['month'] ?? now()->format('Y-m')).'-01')->startOfMonth();
 
         $events = Event::with('organizer:id,name')
             ->withCount(['rsvps as active_rsvps_count' => fn (Builder $query) => $query->where('status', Rsvp::STATUS_GOING)])
@@ -281,5 +282,87 @@ class EventController extends Controller
         });
 
         return response()->json(['data' => $events]);
+    }
+
+    public function checkInStatus(Request $request, Event $event): JsonResponse
+    {
+        $rsvp = $event->rsvps()
+            ->where('user_id', $request->user()->id)
+            ->where('status', Rsvp::STATUS_GOING)
+            ->first();
+
+        return response()->json([
+            'rsvped' => (bool) $rsvp,
+            'checked_in_at' => $rsvp?->checked_in_at,
+            'check_in_open' => ! ($event->ends_at ?? $event->starts_at)->isPast(),
+        ]);
+    }
+
+    public function checkIn(Request $request, Event $event): JsonResponse
+    {
+        $data = $request->validate([
+            'code' => ['required', 'string', 'max:12'],
+        ]);
+
+        if (($event->ends_at ?? $event->starts_at)->isPast()) {
+            return response()->json(['message' => 'This event has already ended.'], 422);
+        }
+
+        $rsvp = $event->rsvps()
+            ->where('user_id', $request->user()->id)
+            ->where('status', Rsvp::STATUS_GOING)
+            ->first();
+
+        if (! $rsvp) {
+            return response()->json(['message' => 'You need an RSVP to check in for this event.'], 422);
+        }
+
+        if (! $event->check_in_code) {
+            return response()->json(['message' => 'Check-in is not available for this event.'], 422);
+        }
+
+        if (! hash_equals(strtoupper($event->check_in_code), strtoupper(trim($data['code'])))) {
+            return response()->json([
+                'message' => 'That check-in code is not valid.',
+                'errors' => ['code' => ['That check-in code is not valid.']],
+            ], 422);
+        }
+
+        if ($rsvp->checked_in_at) {
+            return response()->json([
+                'checked_in' => true,
+                'already_checked_in' => true,
+                'checked_in_at' => $rsvp->checked_in_at,
+                'message' => 'You are already checked in for this event.',
+            ]);
+        }
+
+        $rsvp->update(['checked_in_at' => now()]);
+
+        return response()->json([
+            'checked_in' => true,
+            'already_checked_in' => false,
+            'checked_in_at' => $rsvp->checked_in_at,
+            'message' => 'Check-in confirmed. Enjoy the event!',
+        ]);
+    }
+
+    public function myCheckIns(Request $request): JsonResponse
+    {
+        $checkIns = Rsvp::query()
+            ->with('event.organizer')
+            ->where('user_id', $request->user()->id)
+            ->whereNotNull('checked_in_at')
+            ->whereHas('event', fn (Builder $query) => $query
+                ->whereRaw('COALESCE(ends_at, starts_at) < ?', [now()]))
+            ->orderByDesc('checked_in_at')
+            ->get()
+            ->filter(fn (Rsvp $rsvp): bool => (bool) $rsvp->event)
+            ->map(fn (Rsvp $rsvp): array => array_merge($rsvp->event->toArray(), [
+                'checked_in_at' => $rsvp->checked_in_at,
+            ]))
+            ->values();
+
+        return response()->json(['data' => $checkIns]);
     }
 }

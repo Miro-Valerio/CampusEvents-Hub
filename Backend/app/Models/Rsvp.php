@@ -13,7 +13,9 @@ class Rsvp extends Model
 
     public const STATUS_CANCELLED = 'cancelled';
 
-    protected $fillable = ['user_id', 'event_id', 'status', 'seat_number'];
+    protected $fillable = ['user_id', 'event_id', 'status', 'seat_number', 'reminder_sent_at', 'checked_in_at'];
+
+    protected $casts = ['reminder_sent_at' => 'datetime', 'checked_in_at' => 'datetime'];
 
     /** @use HasFactory<RsvpFactory> */
     use HasFactory;

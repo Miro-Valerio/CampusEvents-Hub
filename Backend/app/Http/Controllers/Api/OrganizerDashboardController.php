@@ -9,20 +9,27 @@ use App\Http\Requests\OrganizerProfileRequest;
 use App\Models\Event;
 use App\Models\EventPhoto;
 use App\Models\Rsvp;
+use App\Notifications\EventTimeChanged;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Gate;
+use Illuminate\Support\Facades\Notification;
 
 class OrganizerDashboardController extends Controller
 {
     public function index(Request $request): JsonResponse
     {
         $events = $request->user()->organizer->events()
-            ->withCount(['rsvps as active_rsvps_count' => fn (Builder $query) => $query->where('status', Rsvp::STATUS_GOING)])
+            ->withCount([
+                'rsvps as active_rsvps_count' => fn (Builder $query) => $query->where('status', Rsvp::STATUS_GOING),
+                'rsvps as checked_in_count' => fn (Builder $query) => $query->whereNotNull('checked_in_at'),
+            ])
             ->with('photos')
             ->orderByDesc('starts_at')
             ->get();
+
+        $events->each(fn (Event $event) => $event->makeVisible('check_in_code'));
 
         return response()->json(['data' => $events]);
     }
@@ -30,6 +37,7 @@ class OrganizerDashboardController extends Controller
     public function store(OrganizerEventRequest $request): JsonResponse
     {
         $event = $request->user()->organizer->events()->create($request->validated());
+        $event->makeVisible('check_in_code');
 
         return response()->json($event->loadCount([
             'rsvps as active_rsvps_count' => fn (Builder $query) => $query->where('status', Rsvp::STATUS_GOING),
@@ -39,9 +47,30 @@ class OrganizerDashboardController extends Controller
     public function update(OrganizerEventRequest $request, Event $event): JsonResponse
     {
         Gate::authorize('update', $event);
+
+        $previousStartsAt = $event->starts_at?->copy();
+        $previousEndsAt = $event->ends_at?->copy();
+
         $event->update($request->validated());
 
-        return response()->json($event->fresh()->loadCount([
+        if ($event->wasChanged(['starts_at', 'ends_at'])) {
+            $event->rsvps()
+                ->where('status', Rsvp::STATUS_GOING)
+                ->update(['reminder_sent_at' => null]);
+
+            $event->loadMissing('organizer');
+            $event->savedBy()
+                ->whereKeyNot($request->user()->id)
+                ->orderBy('users.id')
+                ->chunk(100, function ($users) use ($event, $previousStartsAt, $previousEndsAt): void {
+                    Notification::send($users, new EventTimeChanged($event, $previousStartsAt, $previousEndsAt));
+                });
+        }
+
+        $event = $event->fresh();
+        $event->makeVisible('check_in_code');
+
+        return response()->json($event->loadCount([
             'rsvps as active_rsvps_count' => fn (Builder $query) => $query->where('status', Rsvp::STATUS_GOING),
         ]));
     }
@@ -67,6 +96,7 @@ class OrganizerDashboardController extends Controller
                 'email' => $rsvp->user?->email,
                 'seat_number' => $rsvp->seat_number,
                 'status' => $rsvp->status,
+                'checked_in_at' => $rsvp->checked_in_at,
             ])
             ->values();
 
@@ -104,6 +134,10 @@ class OrganizerDashboardController extends Controller
                 ->whereRaw('COALESCE(ends_at, starts_at) >= ?', [now()])
                 ->count(),
             'total_rsvps' => $rsvpCount,
+            'total_check_ins' => Rsvp::query()
+                ->whereIn('event_id', $eventIds)
+                ->whereNotNull('checked_in_at')
+                ->count(),
             'seats_filled' => (int) $organizer->events()->sum('baseline_registered_count') + $rsvpCount,
         ]);
     }

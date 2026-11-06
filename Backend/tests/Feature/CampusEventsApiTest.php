@@ -7,6 +7,7 @@ use App\Models\Organizer;
 use App\Models\Rsvp;
 use App\Models\User;
 use Illuminate\Foundation\Testing\LazilyRefreshDatabase;
+use Illuminate\Support\Carbon;
 use Tests\TestCase;
 
 class CampusEventsApiTest extends TestCase
@@ -210,6 +211,103 @@ class CampusEventsApiTest extends TestCase
             ->assertOk()
             ->assertJsonPath('message', 'Event deleted successfully.');
         $this->assertDatabaseMissing('events', ['id' => $eventId]);
+    }
+
+    public function test_event_updates_are_saved_and_visible_to_everyone(): void
+    {
+        [$user] = $this->createOrganizer();
+        $token = $user->createToken('feature-test')->plainTextToken;
+
+        $created = $this->withToken($token)
+            ->postJson('/api/organizer/events', $this->eventData())
+            ->assertCreated();
+        $eventId = $created->json('id');
+
+        $startsAt = now()->addDays(9)->startOfSecond();
+        $updated = $this->eventData([
+            'title' => 'Fully Updated Event',
+            'description' => 'The fully updated description.',
+            'poster_url' => 'https://example.com/updated-poster.jpg',
+            'venue' => 'Updated Venue',
+            'starts_at' => $startsAt->toDateTimeString(),
+            'ends_at' => $startsAt->copy()->addHours(3)->toDateTimeString(),
+            'category' => 'Seminar',
+            'rules' => 'Updated rules for attendees.',
+            'capacity' => 75,
+        ]);
+
+        $this->withToken($token)
+            ->putJson("/api/organizer/events/{$eventId}", $updated)
+            ->assertOk()
+            ->assertJsonPath('title', 'Fully Updated Event')
+            ->assertJsonPath('venue', 'Updated Venue');
+
+        $this->assertDatabaseHas('events', [
+            'id' => $eventId,
+            'title' => 'Fully Updated Event',
+            'description' => 'The fully updated description.',
+            'poster_url' => 'https://example.com/updated-poster.jpg',
+            'venue' => 'Updated Venue',
+            'category' => 'Seminar',
+            'rules' => 'Updated rules for attendees.',
+            'capacity' => 75,
+        ]);
+
+        $this->getJson("/api/events/{$eventId}")
+            ->assertOk()
+            ->assertJsonPath('title', 'Fully Updated Event')
+            ->assertJsonPath('description', 'The fully updated description.')
+            ->assertJsonPath('venue', 'Updated Venue')
+            ->assertJsonPath('category', 'Seminar')
+            ->assertJsonPath('capacity', 75);
+
+        $this->getJson('/api/events?search=Fully%20Updated')
+            ->assertOk()
+            ->assertJsonPath('data.0.id', $eventId)
+            ->assertJsonPath('data.0.venue', 'Updated Venue')
+            ->assertJsonPath('data.0.category', 'Seminar');
+    }
+
+    public function test_event_time_updates_round_trip_in_the_app_timezone(): void
+    {
+        [$user] = $this->createOrganizer();
+        $token = $user->createToken('feature-test')->plainTextToken;
+
+        $created = $this->withToken($token)
+            ->postJson('/api/organizer/events', $this->eventData([
+                'starts_at' => '2026-12-01T09:00:00+08:00',
+                'ends_at' => '2026-12-01T11:00:00+08:00',
+            ]))
+            ->assertCreated();
+        $eventId = $created->json('id');
+
+        $this->assertDatabaseHas('events', [
+            'id' => $eventId,
+            'starts_at' => '2026-12-01 09:00:00',
+            'ends_at' => '2026-12-01 11:00:00',
+        ]);
+
+        $this->withToken($token)
+            ->putJson("/api/organizer/events/{$eventId}", $this->eventData([
+                'starts_at' => '2026-12-02T14:30:00+08:00',
+                'ends_at' => '2026-12-02T16:30:00+08:00',
+            ]))
+            ->assertOk();
+
+        $this->assertDatabaseHas('events', [
+            'id' => $eventId,
+            'starts_at' => '2026-12-02 14:30:00',
+            'ends_at' => '2026-12-02 16:30:00',
+        ]);
+
+        $this->getJson("/api/events/{$eventId}")
+            ->assertOk()
+            ->assertJsonPath('starts_at', fn (string $value): bool => Carbon::parse($value)
+                ->timezone('Asia/Manila')
+                ->format('Y-m-d H:i') === '2026-12-02 14:30')
+            ->assertJsonPath('ends_at', fn (string $value): bool => Carbon::parse($value)
+                ->timezone('Asia/Manila')
+                ->format('Y-m-d H:i') === '2026-12-02 16:30');
     }
 
     public function test_organizer_can_manage_attendees_photos_profile_and_stats(): void

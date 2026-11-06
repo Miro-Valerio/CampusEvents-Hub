@@ -1,0 +1,215 @@
+/* -------------------------
+   Door check-in
+------------------------- */
+.check-in-box {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-top: 2px;
+  padding: 14px;
+  border: 1px solid #ecc5b9;
+  border-radius: 14px;
+  background: #fffaf8;
+}
+
+.check-in-box > b {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--text);
+  font-size: 13px;
+}
+
+.check-in-form {
+  display: flex;
+  gap: 8px;
+}
+
+.check-in-form input {
+  flex: 1 1 auto;
+  min-width: 0;
+  min-height: 39px;
+  padding: 8px 11px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  outline: none;
+  background: #fff;
+  color: var(--text);
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+.check-in-form input:focus {
+  border-color: var(--rose);
+  box-shadow: 0 0 0 3px rgba(196, 90, 64, 0.1);
+}
+
+.check-in-form .btn {
+  flex: 0 0 auto;
+  padding: 9px 13px;
+}
+
+.check-in-box small {
+  color: var(--muted);
+  font-size: 11px;
+  line-height: 1.45;
+}
+
+.check-in-confirmed {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  color: #1f7a4d;
+  font-size: 12.5px;
+  font-weight: 700;
+}
+
+.check-in-error {
+  color: #b42318 !important;
+  font-weight: 600;
+}
+
+.check-in-success {
+  color: #1f7a4d !important;
+  font-weight: 600;
+}
+
+/* -------------------------
+   Check-in history
+------------------------- */
+.check-in-history-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(270px, 1fr));
+  gap: 16px;
+  margin-top: 18px;
+}
+
+.check-in-history-card {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 20px;
+  border: 1px solid var(--border);
+  border-radius: 18px;
+  background: var(--panel);
+  box-shadow: 0 10px 30px rgba(74, 22, 13, 0.045);
+}
+
+.check-in-history-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.check-in-history-card .category-tag {
+  position: static;
+}
+
+.check-in-history-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 9px;
+  border-radius: 999px;
+  background: #e8f5ee;
+  color: #1f7a4d;
+  font-size: 9px;
+  font-weight: 800;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
+
+.check-in-history-card h3 {
+  margin: 2px 0 0;
+  font-size: 19px;
+  line-height: 1.35;
+}
+
+.check-in-history-meta {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  color: var(--muted-2);
+  font-size: 12.5px;
+}
+
+.check-in-history-meta span {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.check-in-history-time {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin-top: 4px;
+  padding: 9px 11px;
+  border-radius: 10px;
+  background: var(--peach-soft);
+  color: var(--muted-2);
+  font-size: 11.5px;
+}
+
+.check-in-history-time b {
+  color: var(--red);
+  font-size: 10px;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
+
+/* -------------------------
+   Organizer attendance tools
+------------------------- */
+.dashboard-check-in {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 9px;
+  padding: 8px 10px;
+  border: 1px dashed #e7bdb1;
+  border-radius: 10px;
+  background: #fffaf8;
+}
+
+.dashboard-check-in span {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  color: var(--muted);
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
+
+.dashboard-check-in b {
+  color: var(--red);
+  font-family: "Manrope", sans-serif;
+  font-size: 13px;
+  letter-spacing: 0.14em;
+}
+
+.dashboard-check-in small {
+  margin-left: auto;
+  color: var(--muted);
+  font-size: 10px;
+}
+
+@media (max-width: 560px) {
+  .check-in-form {
+    flex-direction: column;
+  }
+
+  .check-in-form .btn {
+    width: 100%;
+  }
+
+  .check-in-history-grid {
+    grid-template-columns: 1fr;
+  }
+}

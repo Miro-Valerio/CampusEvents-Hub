@@ -59,6 +59,7 @@ export default function AppHeader({
         {user?.role === "student" && link("my-rsvps", "My RSVPs")}
         {user?.role === "student" && link("saved", "Bookmarks")}
         {user?.role === "student" && link("my-calendar", "My list")}
+        {user?.role === "student" && link("check-ins", "Check-ins")}
       </nav>
       <div className="account">
         {user ? (

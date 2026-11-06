@@ -14,6 +14,7 @@ import AnnouncementsView from "./components/AnnouncementsView";
 import AuthModal from "./components/AuthModal";
 import ArchiveView from "./components/ArchiveView";
 import CalendarView from "./components/CalendarView";
+import CheckInHistoryView from "./components/CheckInHistoryView";
 import EventDiscoveryView from "./components/EventDiscoveryView";
 import EventListView from "./components/EventListView";
 import EventPage from "./components/EventPage";
@@ -34,6 +35,7 @@ import "./css/organizers.css";
 import "./css/organizer-dashboard.css";
 import "./css/announcements.css";
 import "./css/event-page.css";
+import "./css/check-in.css";
 import "./css/calendar.css";
 import "./css/archive.css";
 import "./css/footer.css";
@@ -80,6 +82,7 @@ function App() {
   const [myRsvps, setMyRsvps] = useState([]);
   const [saved, setSaved] = useState([]);
   const [calendarList, setCalendarList] = useState([]);
+  const [checkInHistory, setCheckInHistory] = useState([]);
   const [listLoading, setListLoading] = useState(false);
   const [rsvpBusyEventId, setRsvpBusyEventId] = useState(null);
   const [seatConfirmation, setSeatConfirmation] = useState(null);
@@ -138,9 +141,11 @@ function App() {
   const inCalendar = (id) => calendarList.some((e) => e.id === id);
 
   // ---------- data loading ----------
-  const loadEvents = async (page = 1) => {
-    setLoading(true);
-    clearError();
+  const loadEvents = async (page = 1, silent = false) => {
+    if (!silent) {
+      setLoading(true);
+      clearError();
+    }
     try {
       const { data } = await http.get("/events", {
         params: { search, date, category, organizer_id: organizer, sort, page },
@@ -148,12 +153,23 @@ function App() {
       setEvents(data.data || []);
       setPagination(data);
     } catch {
-      showError(
-        "We couldn’t load events. Check that the Laravel API is running, then try again.",
-        () => loadEvents(page),
-      );
+      if (!silent) {
+        showError(
+          "We couldn’t load events. Check that the Laravel API is running, then try again.",
+          () => loadEvents(page),
+        );
+      }
     } finally {
-      setLoading(false);
+      if (!silent) setLoading(false);
+    }
+  };
+  const refreshSelectedEvent = async () => {
+    if (!selected?.id) return;
+    try {
+      const { data } = await http.get(`/events/${selected.id}`);
+      setSelected(data);
+    } catch {
+      // Keep the currently displayed event if the silent refresh fails.
     }
   };
   const loadOrganizers = async () => {
@@ -192,6 +208,18 @@ function App() {
       setCalendarList(cal.data.data || []);
     } catch {
       showError("Could not load your lists. Please retry.", loadMyLists);
+    } finally {
+      setListLoading(false);
+    }
+  };
+
+  const loadCheckInHistory = async () => {
+    setListLoading(true);
+    try {
+      const { data } = await http.get("/my-check-ins");
+      setCheckInHistory(data.data || []);
+    } catch {
+      showError("Could not load your check-in history. Please retry.", loadCheckInHistory);
     } finally {
       setListLoading(false);
     }
@@ -249,6 +277,19 @@ function App() {
     return () => clearTimeout(timer);
   }, [search, date, category, organizer, sort]);
   useEffect(() => {
+    const refreshVisibleData = () => {
+      if (document.visibilityState && document.visibilityState !== "visible") return;
+      loadEvents(1, true);
+      refreshSelectedEvent();
+    };
+    window.addEventListener("focus", refreshVisibleData);
+    document.addEventListener("visibilitychange", refreshVisibleData);
+    return () => {
+      window.removeEventListener("focus", refreshVisibleData);
+      document.removeEventListener("visibilitychange", refreshVisibleData);
+    };
+  }, [selected?.id, search, date, category, organizer, sort]);
+  useEffect(() => {
     const timer = setTimeout(() => view === "archive" && loadArchive(1), 250);
     return () => clearTimeout(timer);
   }, [archiveSearch]);
@@ -283,9 +324,11 @@ function App() {
     setNotificationsOpen(false);
     setView(target);
     window.scrollTo({ top: 0 });
+    if (target === "discover") loadEvents(1);
     if (target === "archive") loadArchive(1);
     if (target === "announcements") loadAnnouncements();
     if (["my-rsvps", "saved", "my-calendar"].includes(target)) loadMyLists();
+    if (target === "check-ins") loadCheckInHistory();
     if (target === "organizers") loadOrganizers();
   };
   useEffect(() => {
@@ -303,6 +346,14 @@ function App() {
       setSelected(data);
     } catch {
       setNotice("Showing event preview. Full details could not be refreshed.");
+    }
+  };
+  const openEventById = async (id) => {
+    try {
+      const { data } = await http.get(`/events/${id}`);
+      openEvent(data);
+    } catch {
+      showError("Could not open that event. Please try again.", () => openEventById(id));
     }
   };
   const openOrganizer = async (id) => {
@@ -364,6 +415,7 @@ function App() {
       setMyRsvps([]);
       setSaved([]);
       setCalendarList([]);
+      setCheckInHistory([]);
       setView("discover");
       setSelected(null);
       setNotifications([]);
@@ -538,6 +590,10 @@ function App() {
           );
         })
         .catch(() => {});
+    }
+    if (notification?.data?.event_id && notification?.data?.type?.startsWith("event")) {
+      openEventById(notification.data.event_id);
+      return;
     }
     go("announcements");
   };
@@ -751,6 +807,12 @@ function App() {
             inCalendar={inCalendar(selected.id)}
             isBusy={rsvpBusyEventId === selected.id}
             loadAttendees={(id) => http.get(`/events/${id}/attendees`).then((r) => r.data)}
+            loadCheckInStatus={(id) =>
+              http.get(`/events/${id}/check-in`).then((r) => r.data)
+            }
+            onCheckIn={(event, code) =>
+              http.post(`/events/${event.id}/check-in`, { code }).then((r) => r.data)
+            }
             onBack={() => go(backView)}
             onRsvp={toggleRsvp}
             onSave={toggleSave}
@@ -787,6 +849,7 @@ function App() {
               setUser((current) => ({ ...current, organizer }))
             }
             onNotice={setNotice}
+            onEventsChanged={() => loadEvents(1, true)}
           />
         )}
         {view === "my-rsvps" && (
@@ -837,6 +900,17 @@ function App() {
             onRefresh={loadMyLists}
             onBrowse={() => go("discover")}
             onDownloadAll={() => downloadIcs(calendarList, "my-campus-events.ics")}
+          />
+        )}
+
+        {view === "check-ins" && (
+          <CheckInHistoryView
+            events={checkInHistory}
+            loading={listLoading}
+            prettyDate={prettyDate}
+            onOpen={openEvent}
+            onRefresh={loadCheckInHistory}
+            onBrowse={() => go("discover")}
           />
         )}
 
