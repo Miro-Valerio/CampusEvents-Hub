@@ -127,10 +127,6 @@
   box-shadow: 0 12px 30px rgba(74, 22, 13, 0.16);
 }
 
-.mobile-menu-primary {
-  display: none;
-}
-
 .mobile-navigation-menu a,
 .mobile-navigation-menu button {
   display: flex;
@@ -153,12 +149,6 @@
 .mobile-navigation-menu button:hover {
   background: var(--peach-soft);
   color: var(--red);
-}
-
-@media (max-width: 760px) {
-  .mobile-menu-primary {
-    display: grid;
-  }
 }
 
 .mobile-navigation-menu button {

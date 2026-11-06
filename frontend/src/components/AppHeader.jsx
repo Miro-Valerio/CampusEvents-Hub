@@ -86,6 +86,7 @@ export default function AppHeader({
         {link("announcements", "Announcements")}
         {link("organizers", "Organizers")}
         {link("calendar", "Calendar")}
+        {link("archive", "Archive")}
       </nav>
       <div className="account">
         {user ? (
@@ -121,13 +122,6 @@ export default function AppHeader({
           </button>
           {menuOpen && (
             <div className="mobile-navigation-menu" id="mobile-navigation-menu">
-              <div className="mobile-menu-primary">
-                {menuLink("discover", "Discover", false)}
-                {menuLink("announcements", "Announcements", false)}
-                {menuLink("organizers", "Organizers", false)}
-                {menuLink("calendar", "Calendar", false)}
-              </div>
-              {menuLink("archive", "Archive", false)}
               {user?.role === "student" && (
                 <>
                   {menuLink("my-rsvps", "My RSVPs")}
