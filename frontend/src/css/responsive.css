@@ -330,7 +330,6 @@
     padding: 0 4%;
   }
   .topbar nav { display: none; }
-  .mobile-menu-wrap { display: block; }
   .topbar-logout { display: none; }
   .cal-cell { min-height: 64px; padding: 4px; }
   .cal-chip { font-size: 9px; padding: 2px 3px; }

@@ -94,7 +94,7 @@
 }
 
 .mobile-menu-wrap {
-  display: none;
+  display: block;
   position: relative;
 }
 
