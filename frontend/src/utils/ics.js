@@ -4,23 +4,33 @@ const esc = (text = "") =>
   String(text).replace(/\\/g, "\\\\").replace(/;/g, "\\;").replace(/,/g, "\\,").replace(/\r?\n/g, "\\n");
 
 export function buildIcs(events) {
-  const lines = ["BEGIN:VCALENDAR", "VERSION:2.0", "PRODID:-//CampusEvents Hub//EN"];
+  const lines = [
+    "BEGIN:VCALENDAR",
+    "VERSION:2.0",
+    "PRODID:-//CampusEvents Hub//EN",
+    "CALSCALE:GREGORIAN",
+    "METHOD:PUBLISH",
+  ];
   events.forEach((event) => {
-    const end = event.ends_at || new Date(new Date(event.starts_at).getTime() + 2 * 3600 * 1000);
+    const start = new Date(event.starts_at);
+    const end = event.ends_at
+      ? new Date(event.ends_at)
+      : new Date(start.getTime() + 2 * 3600 * 1000);
     lines.push(
       "BEGIN:VEVENT",
       `UID:event-${event.id}@campusevents-hub`,
       `DTSTAMP:${stamp(new Date())}`,
-      `DTSTART:${stamp(event.starts_at)}`,
+      `DTSTART:${stamp(start)}`,
       `DTEND:${stamp(end)}`,
       `SUMMARY:${esc(event.title)}`,
       `LOCATION:${esc(event.venue)}`,
-      `DESCRIPTION:${esc(event.description || "")}`,
+      `DESCRIPTION:${esc(`${event.description || ""}\n${event.category ? `Category: ${event.category}` : ""}`.trim())}`,
+      "STATUS:CONFIRMED",
       "END:VEVENT",
     );
   });
   lines.push("END:VCALENDAR");
-  return lines.join("\r\n");
+  return `${lines.join("\r\n")}\r\n`;
 }
 
 export function downloadIcs(events, filename = "campus-events.ics") {

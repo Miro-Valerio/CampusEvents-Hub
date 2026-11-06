@@ -1,13 +1,23 @@
 import React from "react";
 import { CalendarDays, LogIn, LogOut, Loader2 } from "lucide-react";
+import NotificationBell from "./NotificationBell";
 
 export default function AppHeader({
   user,
   isLoggingOut,
   view,
+  notifications,
+  notificationsUnread,
+  notificationsOpen,
+  notificationsLoading,
+  prettyDate,
   onNavigate,
   onLogin,
   onLogout,
+  onToggleNotifications,
+  onCloseNotifications,
+  onMarkAllNotificationsRead,
+  onOpenNotifications,
 }) {
   const link = (target, label, requiresLogin = false) => (
     <a
@@ -41,6 +51,7 @@ export default function AppHeader({
       </a>
       <nav>
         {link("discover", "Discover")}
+        {link("announcements", "Announcements")}
         {link("organizers", "Organizers")}
         {link("calendar", "Calendar")}
         {link("archive", "Archive")}
@@ -52,6 +63,17 @@ export default function AppHeader({
       <div className="account">
         {user ? (
           <>
+            <NotificationBell
+              notifications={notifications}
+              unreadCount={notificationsUnread}
+              open={notificationsOpen}
+              loading={notificationsLoading}
+              prettyDate={prettyDate}
+              onToggle={onToggleNotifications}
+              onClose={onCloseNotifications}
+              onMarkAllRead={onMarkAllNotificationsRead}
+              onOpenAnnouncements={onOpenNotifications}
+            />
             <span className="user-name">Hi, {user.name}</span>
             <button
               className="btn btn-outline"

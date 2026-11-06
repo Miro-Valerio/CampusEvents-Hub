@@ -3,7 +3,10 @@ import {
   CalendarDays,
   Download,
   ImagePlus,
+  Megaphone,
   Pencil,
+  Pin,
+  PinOff,
   Plus,
   RefreshCw,
   Save,
@@ -11,6 +14,7 @@ import {
   Users,
   X,
 } from "lucide-react";
+import { COURSES } from "../constants";
 
 const emptyEvent = () => {
   const start = new Date(Date.now() + 24 * 60 * 60 * 1000);
@@ -49,6 +53,13 @@ function eventToForm(event) {
   };
 }
 
+const emptyAnnouncement = () => ({
+  title: "",
+  body: "",
+  course: "",
+  pinned: false,
+});
+
 function errorMessage(error) {
   return (
     error.response?.data?.message ||
@@ -64,6 +75,8 @@ export default function OrganizerDashboard({
   onNotice,
 }) {
   const [events, setEvents] = useState([]);
+  const [announcements, setAnnouncements] = useState([]);
+  const [announcementForm, setAnnouncementForm] = useState(emptyAnnouncement);
   const [stats, setStats] = useState(null);
   const [loading, setLoading] = useState(true);
   const [loadFailed, setLoadFailed] = useState(false);
@@ -86,12 +99,14 @@ export default function OrganizerDashboard({
     setDashboardError(null);
     setValidationMessages([]);
     try {
-      const [eventResponse, statsResponse] = await Promise.all([
+      const [eventResponse, statsResponse, announcementResponse] = await Promise.all([
         http.get("/organizer/events"),
         http.get("/organizer/stats"),
+        http.get("/organizer/announcements"),
       ]);
       setEvents(eventResponse.data.data || []);
       setStats(statsResponse.data);
+      setAnnouncements(announcementResponse.data.data || []);
     } catch (error) {
       setLoadFailed(true);
       setDashboardError({ message: errorMessage(error), retry: loadDashboard });
@@ -154,6 +169,60 @@ export default function OrganizerDashboard({
       await loadDashboard();
     } catch (error) {
       reportError(error, () => deleteEvent(event));
+    } finally {
+      setBusy("");
+    }
+  };
+
+  const saveAnnouncement = async (event) => {
+    event?.preventDefault();
+    setBusy("announcement");
+    setDashboardError(null);
+    setValidationMessages([]);
+    try {
+      await http.post("/organizer/announcements", {
+        ...announcementForm,
+        course: announcementForm.course || null,
+        pinned: Boolean(announcementForm.pinned),
+      });
+      setAnnouncementForm(emptyAnnouncement());
+      onNotice("Announcement posted to the campus feed.");
+      await loadDashboard();
+    } catch (error) {
+      reportError(error, () => saveAnnouncement());
+    } finally {
+      setBusy("");
+    }
+  };
+
+  const toggleAnnouncementPin = async (announcement) => {
+    setBusy(`announcement-pin-${announcement.id}`);
+    setDashboardError(null);
+    setValidationMessages([]);
+    try {
+      const { data } = await http.post(
+        `/organizer/announcements/${announcement.id}/pin`,
+      );
+      onNotice(data.message);
+      await loadDashboard();
+    } catch (error) {
+      reportError(error, () => toggleAnnouncementPin(announcement));
+    } finally {
+      setBusy("");
+    }
+  };
+
+  const deleteAnnouncement = async (announcement) => {
+    if (!window.confirm(`Delete "${announcement.title}" from the campus feed?`)) return;
+    setBusy(`announcement-delete-${announcement.id}`);
+    setDashboardError(null);
+    setValidationMessages([]);
+    try {
+      await http.delete(`/organizer/announcements/${announcement.id}`);
+      onNotice("Announcement deleted.");
+      await loadDashboard();
+    } catch (error) {
+      reportError(error, () => deleteAnnouncement(announcement));
     } finally {
       setBusy("");
     }
@@ -472,6 +541,149 @@ export default function OrganizerDashboard({
             {busy === "event" ? "Saving event..." : editingId ? "Update event" : "Create event"}
           </button>
         </form>
+      </div>
+
+      <div className="dashboard-columns dashboard-announcement-columns">
+        <form
+          className="dashboard-panel dashboard-announcement-form"
+          onSubmit={saveAnnouncement}
+        >
+          <div className="dashboard-panel-heading">
+            <div>
+              <h2>Post an announcement</h2>
+              <p>Publish an update to the campus feed.</p>
+            </div>
+          </div>
+          <label>
+            Title
+            <input
+              required
+              maxLength="190"
+              value={announcementForm.title}
+              onChange={(event) =>
+                setAnnouncementForm((current) => ({ ...current, title: event.target.value }))
+              }
+              placeholder="What do students need to know?"
+            />
+          </label>
+          <label>
+            Message
+            <textarea
+              required
+              rows="4"
+              maxLength="10000"
+              value={announcementForm.body}
+              onChange={(event) =>
+                setAnnouncementForm((current) => ({ ...current, body: event.target.value }))
+              }
+              placeholder="Share the details, schedule, or next steps..."
+            />
+          </label>
+          <label>
+            Audience
+            <select
+              value={announcementForm.course}
+              onChange={(event) =>
+                setAnnouncementForm((current) => ({ ...current, course: event.target.value }))
+              }
+            >
+              <option value="">Campus-wide</option>
+              {COURSES.map((name) => (
+                <option key={name} value={name}>
+                  {name}
+                </option>
+              ))}
+            </select>
+          </label>
+          <label className="dashboard-pin-toggle">
+            <input
+              type="checkbox"
+              checked={announcementForm.pinned}
+              onChange={(event) =>
+                setAnnouncementForm((current) => ({
+                  ...current,
+                  pinned: event.target.checked,
+                }))
+              }
+            />
+            Pin to the top of the feed
+          </label>
+          <button
+            className="btn btn-primary"
+            type="submit"
+            disabled={busy === "announcement"}
+          >
+            <Megaphone size={16} />
+            {busy === "announcement" ? "Posting..." : "Post announcement"}
+          </button>
+        </form>
+
+        <section className="dashboard-panel dashboard-announcements">
+          <div className="dashboard-panel-heading">
+            <div>
+              <h2>Your announcements</h2>
+              <p>Pin important notices or remove outdated updates.</p>
+            </div>
+            <span className="dashboard-count">{announcements.length}</span>
+          </div>
+          {loading ? (
+            <div className="loading-line"><span /> Loading announcements...</div>
+          ) : announcements.length === 0 ? (
+            <div className="dashboard-empty">
+              You haven’t posted any announcements yet.
+            </div>
+          ) : (
+            <div className="dashboard-announcement-list">
+              {announcements.map((announcement) => (
+                <article className="dashboard-announcement" key={announcement.id}>
+                  <div className="dashboard-announcement-top">
+                    <span className="dashboard-announcement-badges">
+                      {announcement.pinned && (
+                        <span className="dashboard-announcement-pinned">
+                          <Pin size={11} /> Pinned
+                        </span>
+                      )}
+                      <span className="dashboard-announcement-course">
+                        {announcement.course || "Campus-wide"}
+                      </span>
+                    </span>
+                    <small>
+                      {new Date(announcement.created_at).toLocaleString()}
+                    </small>
+                  </div>
+                  <h3>{announcement.title}</h3>
+                  <p>{announcement.body}</p>
+                  <div className="dashboard-announcement-footer">
+                    <span className="dashboard-announcement-metrics">
+                      {announcement.reads_count ?? 0} read ·{" "}
+                      {announcement.reactions_count ?? 0} reaction
+                      {(announcement.reactions_count ?? 0) === 1 ? "" : "s"}
+                    </span>
+                    <span className="dashboard-announcement-actions">
+                      <button
+                        className="btn btn-outline"
+                        type="button"
+                        onClick={() => toggleAnnouncementPin(announcement)}
+                        disabled={busy === `announcement-pin-${announcement.id}`}
+                      >
+                        {announcement.pinned ? <PinOff size={14} /> : <Pin size={14} />}
+                        {announcement.pinned ? "Unpin" : "Pin"}
+                      </button>
+                      <button
+                        className="btn btn-outline dashboard-delete"
+                        type="button"
+                        onClick={() => deleteAnnouncement(announcement)}
+                        disabled={busy === `announcement-delete-${announcement.id}`}
+                      >
+                        <Trash2 size={14} /> Delete
+                      </button>
+                    </span>
+                  </div>
+                </article>
+              ))}
+            </div>
+          )}
+        </section>
       </div>
 
       <section className="dashboard-panel dashboard-events">
