@@ -2,6 +2,9 @@
    Header / Navigation
 ------------------------- */
 .topbar {
+  position: sticky;
+  top: 0;
+  z-index: 1000;
   height: 82px;
   display: flex;
   align-items: center;
@@ -129,7 +132,7 @@
 
 .mobile-navigation-menu {
   position: absolute;
-  z-index: 20;
+  z-index: 1100;
   top: calc(100% + 12px);
   right: 0;
   display: grid;
