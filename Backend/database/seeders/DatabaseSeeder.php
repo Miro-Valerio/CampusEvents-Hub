@@ -42,10 +42,49 @@ class DatabaseSeeder extends Seeder
             ['name' => 'IT Student Organization'],
             ['description' => 'Technology talks, workshops, and student-led events.'],
         );
+        $collegeOrganizers = [
+            [
+                'College of Computer Studies (CCS)',
+                'Campus events and student activities organized by the College of Computer Studies.',
+                'ccs.organizer@spc.edu.ph',
+                'CCS Organizer',
+            ],
+            [
+                'College of Business Administration (CBA)',
+                'Campus events and student activities organized by the College of Business Administration.',
+                'cba.organizer@spc.edu.ph',
+                'CBA Organizer',
+            ],
+            [
+                'College of Criminology (CCrim)',
+                'Campus events and student activities organized by the College of Criminology.',
+                'ccrim.organizer@spc.edu.ph',
+                'CCrim Organizer',
+            ],
+            [
+                'College of Engineering (COE)',
+                'Campus events and student activities organized by the College of Engineering.',
+                'coe.organizer@spc.edu.ph',
+                'COE Organizer',
+            ],
+            [
+                'College of Education (CED)',
+                'Campus events and student activities organized by the College of Education.',
+                'ced.organizer@spc.edu.ph',
+                'CED Organizer',
+            ],
+        ];
         $organizerAccounts = [
             [$studentAffairs, 'organizer@spc.edu.ph', 'SPC Organizer'],
             [$itOrganization, 'it.organizer@spc.edu.ph', 'IT Organizer'],
         ];
+        foreach ($collegeOrganizers as [$name, $description, $email, $accountName]) {
+            $organizer = Organizer::updateOrCreate(
+                ['name' => $name],
+                ['description' => $description],
+            );
+            $organizerAccounts[] = [$organizer, $email, $accountName];
+        }
         foreach ($organizerAccounts as [$organizer, $email, $name]) {
             $account = User::updateOrCreate(
                 ['email' => $email],

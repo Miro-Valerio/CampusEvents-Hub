@@ -53,6 +53,33 @@ class CampusEventsApiTest extends TestCase
             ->assertJsonPath('total', 6);
     }
 
+    public function test_college_organizers_have_linked_demo_accounts(): void
+    {
+        $this->seed();
+
+        $collegeAccounts = [
+            'College of Computer Studies (CCS)' => 'ccs.organizer@spc.edu.ph',
+            'College of Business Administration (CBA)' => 'cba.organizer@spc.edu.ph',
+            'College of Criminology (CCrim)' => 'ccrim.organizer@spc.edu.ph',
+            'College of Engineering (COE)' => 'coe.organizer@spc.edu.ph',
+            'College of Education (CED)' => 'ced.organizer@spc.edu.ph',
+        ];
+
+        foreach ($collegeAccounts as $organizerName => $email) {
+            $user = User::query()->where('email', $email)->firstOrFail();
+
+            $this->assertSame('organizer', $user->role);
+            $this->assertSame($organizerName, $user->organizer?->name);
+
+            $this->postJson('/api/login', [
+                'email' => $email,
+                'password' => 'password',
+            ])->assertOk()
+                ->assertJsonPath('user.role', 'organizer')
+                ->assertJsonPath('user.organizer.name', $organizerName);
+        }
+    }
+
     public function test_registration_returns_a_token_and_persists_the_user(): void
     {
         $response = $this->postJson('/api/register', [
@@ -459,7 +486,7 @@ class CampusEventsApiTest extends TestCase
 
         $this->getJson('/api/organizers')
             ->assertOk()
-            ->assertJsonCount(4, 'data');
+            ->assertJsonCount(9, 'data');
 
         $organizer = Organizer::where('name', 'SPC Student Affairs')->firstOrFail();
         $this->getJson("/api/organizers/{$organizer->id}")
