@@ -102,20 +102,6 @@ export default function AppHeader({
               onOpenAnnouncements={onOpenNotifications}
             />
             <span className="user-name">Hi, {user.name}</span>
-            <button
-              className="btn btn-outline topbar-logout"
-              type="button"
-              onClick={onLogout}
-              disabled={isLoggingOut}
-              aria-busy={isLoggingOut}
-            >
-              {isLoggingOut ? (
-                <Loader2 size={16} className="auth-spinner" aria-hidden="true" />
-              ) : (
-                <LogOut size={16} />
-              )}
-              {isLoggingOut ? "Logging out..." : "Log out"}
-            </button>
             <div className="mobile-menu-wrap" ref={menuRef}>
               <button
                 className="mobile-menu-toggle"
