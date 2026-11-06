@@ -36,6 +36,9 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::get('/my-rsvps', [EventController::class, 'myRsvps']);
     Route::get('/my-saves', [EventController::class, 'mySaves']);
     Route::get('/my-calendar', [EventController::class, 'myCalendar']);
+    Route::get('/my-check-ins', [EventController::class, 'myCheckIns']);
+    Route::get('/events/{event}/check-in', [EventController::class, 'checkInStatus']);
+    Route::post('/events/{event}/check-in', [EventController::class, 'checkIn'])->middleware('throttle:10,1');
     Route::post('/events/{event}/calendar', [EventController::class, 'toggleCalendar']);
     Route::post('/logout', [AuthController::class, 'logout']);
     Route::post('/events/{event}/rsvp', [EventController::class, 'storeRsvp']);

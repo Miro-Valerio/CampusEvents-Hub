@@ -1,8 +1,10 @@
 import React, { useEffect, useState } from "react";
 import {
   CalendarDays,
+  CheckCircle2,
   Download,
   ImagePlus,
+  KeyRound,
   Megaphone,
   Pencil,
   Pin,
@@ -73,6 +75,7 @@ export default function OrganizerDashboard({
   organizer,
   onProfileChange,
   onNotice,
+  onEventsChanged,
 }) {
   const [events, setEvents] = useState([]);
   const [announcements, setAnnouncements] = useState([]);
@@ -151,6 +154,7 @@ export default function OrganizerDashboard({
       setEditingId(null);
       setEventForm(emptyEvent());
       await loadDashboard();
+      onEventsChanged?.();
     } catch (error) {
       reportError(error, () => saveEvent());
     } finally {
@@ -167,6 +171,7 @@ export default function OrganizerDashboard({
       await http.delete(`/organizer/events/${event.id}`);
       onNotice("Event deleted.");
       await loadDashboard();
+      onEventsChanged?.();
     } catch (error) {
       reportError(error, () => deleteEvent(event));
     } finally {
@@ -298,12 +303,13 @@ export default function OrganizerDashboard({
 
   const downloadAttendees = (eventId, eventTitle) => {
     const rows = [
-      ["Name", "Email", "Seat number", "Status"],
+      ["Name", "Email", "Seat number", "Status", "Checked in at"],
       ...attendees[eventId].map((attendee) => [
         attendee.name,
         attendee.email,
         attendee.seat_number,
         attendee.status,
+        attendee.checked_in_at || "Not checked in",
       ]),
     ];
     const csv = rows
@@ -363,6 +369,7 @@ export default function OrganizerDashboard({
           ["Events", stats?.total_events, <CalendarDays size={19} />],
           ["Upcoming", stats?.upcoming_events, <CalendarDays size={19} />],
           ["Going RSVPs", stats?.total_rsvps, <Users size={19} />],
+          ["Checked in", stats?.total_check_ins, <CheckCircle2 size={19} />],
           ["Seats filled", stats?.seats_filled, <Users size={19} />],
         ].map(([label, value, icon]) => (
           <article className="dashboard-stat" key={label}>
@@ -722,6 +729,15 @@ export default function OrganizerDashboard({
                       <h3>{event.title}</h3>
                       <p>{event.venue} · {new Date(event.starts_at).toLocaleString()}</p>
                       <small>{going} going RSVP{going === 1 ? "" : "s"} / {event.capacity} seats</small>
+                      {!isPast && event.check_in_code && (
+                        <div className="dashboard-check-in">
+                          <span>
+                            <KeyRound size={13} /> Door code
+                          </span>
+                          <b>{event.check_in_code}</b>
+                          <small>{event.checked_in_count ?? 0} checked in</small>
+                        </div>
+                      )}
                     </div>
                   </div>
                   <div className="dashboard-event-actions">
@@ -769,7 +785,10 @@ export default function OrganizerDashboard({
                             {attendees[event.id].map((attendee, index) => (
                               <div key={`${event.id}-${attendee.seat_number}-${index}`}>
                                 <span>{attendee.name} <small>{attendee.email}</small></span>
-                                <span>Seat {attendee.seat_number ?? "—"} · {attendee.status}</span>
+                                <span>
+                                  Seat {attendee.seat_number ?? "—"} · {attendee.status} ·{" "}
+                                  {attendee.checked_in_at ? "checked in" : "not checked in"}
+                                </span>
                               </div>
                             ))}
                           </div>

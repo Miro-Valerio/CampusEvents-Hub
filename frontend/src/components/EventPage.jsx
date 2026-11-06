@@ -4,7 +4,9 @@ import {
   Bookmark,
   CalendarDays,
   CalendarPlus,
+  CheckCircle2,
   Download,
+  KeyRound,
   MapPin,
   Users,
 } from "lucide-react";
@@ -17,6 +19,8 @@ export default function EventPage({
   inCalendar,
   isBusy,
   loadAttendees,
+  loadCheckInStatus,
+  onCheckIn,
   onBack,
   onRsvp,
   onSave,
@@ -26,6 +30,15 @@ export default function EventPage({
   canRsvp = true,
 }) {
   const [attendees, setAttendees] = useState(null);
+  const [checkInStatus, setCheckInStatus] = useState({
+    loading: false,
+    checkedInAt: null,
+    open: true,
+  });
+  const [checkInCode, setCheckInCode] = useState("");
+  const [checkInBusy, setCheckInBusy] = useState(false);
+  const [checkInMessage, setCheckInMessage] = useState("");
+  const [checkInError, setCheckInError] = useState("");
   const past = isPast(event);
   const isFull = !isRsvped && event.registered_count >= event.capacity;
 
@@ -40,6 +53,62 @@ export default function EventPage({
       alive = false;
     };
   }, [event.id, event.registered_count]);
+
+  useEffect(() => {
+    let alive = true;
+    setCheckInMessage("");
+    setCheckInError("");
+    setCheckInCode("");
+
+    if (!isRsvped || typeof loadCheckInStatus !== "function") {
+      setCheckInStatus({ loading: false, checkedInAt: null, open: !past });
+      return undefined;
+    }
+
+    setCheckInStatus((current) => ({ ...current, loading: true }));
+    loadCheckInStatus(event.id)
+      .then((data) => {
+        if (!alive) return;
+        setCheckInStatus({
+          loading: false,
+          checkedInAt: data.checked_in_at,
+          open: data.check_in_open !== false,
+        });
+      })
+      .catch(() => {
+        if (alive) setCheckInStatus({ loading: false, checkedInAt: null, open: !past });
+      });
+
+    return () => {
+      alive = false;
+    };
+  }, [event.id, isRsvped, past]);
+
+  const submitCheckIn = async (submit) => {
+    submit.preventDefault();
+    const code = checkInCode.trim();
+    if (!code || checkInBusy || typeof onCheckIn !== "function") return;
+
+    setCheckInBusy(true);
+    setCheckInError("");
+    setCheckInMessage("");
+    try {
+      const data = await onCheckIn(event, code);
+      setCheckInStatus((current) => ({
+        ...current,
+        checkedInAt: data.checked_in_at,
+        open: true,
+      }));
+      setCheckInMessage(data.message || "Check-in confirmed.");
+      setCheckInCode("");
+    } catch (err) {
+      setCheckInError(
+        err.response?.data?.message || "Could not check in. Please try again.",
+      );
+    } finally {
+      setCheckInBusy(false);
+    }
+  };
 
   const initials = (name) =>
     name
@@ -136,6 +205,48 @@ export default function EventPage({
                         ? "Event full"
                         : "RSVP · Going"}
                 </button>
+              )}
+              {isRsvped && (
+                <div className="check-in-box">
+                  <b>
+                    <KeyRound size={15} /> Door check-in
+                  </b>
+                  {checkInStatus.loading ? (
+                    <small>Checking your status…</small>
+                  ) : checkInStatus.checkedInAt ? (
+                    <div className="check-in-confirmed">
+                      <CheckCircle2 size={16} />
+                      Checked in {prettyDate(checkInStatus.checkedInAt)}
+                    </div>
+                  ) : checkInStatus.open ? (
+                    <form className="check-in-form" onSubmit={submitCheckIn}>
+                      <input
+                        value={checkInCode}
+                        onChange={(event) => setCheckInCode(event.target.value)}
+                        maxLength={12}
+                        placeholder="Officer code"
+                        aria-label="Check-in code"
+                        autoComplete="off"
+                      />
+                      <button
+                        className="btn btn-primary"
+                        type="submit"
+                        disabled={checkInBusy || !checkInCode.trim()}
+                      >
+                        {checkInBusy ? "Checking…" : "Check in"}
+                      </button>
+                    </form>
+                  ) : (
+                    <small>Check-in is closed for this event.</small>
+                  )}
+                  {!checkInStatus.checkedInAt && checkInStatus.open && (
+                    <small>Ask the event officer for the code at the door.</small>
+                  )}
+                  {checkInError && <small className="check-in-error">{checkInError}</small>}
+                  {checkInMessage && (
+                    <small className="check-in-success">{checkInMessage}</small>
+                  )}
+                </div>
               )}
               <button className="btn btn-outline full-btn" onClick={() => onSave(event)}>
                 <Bookmark size={16} fill={isSaved ? "currentColor" : "none"} />

@@ -3,6 +3,7 @@
 namespace App\Http\Requests;
 
 use Illuminate\Foundation\Http\FormRequest;
+use Illuminate\Support\Carbon;
 use Illuminate\Validation\Validator;
 
 class OrganizerEventRequest extends FormRequest
@@ -10,6 +11,27 @@ class OrganizerEventRequest extends FormRequest
     public function authorize(): bool
     {
         return true;
+    }
+
+    protected function prepareForValidation(): void
+    {
+        foreach (['starts_at', 'ends_at'] as $field) {
+            $value = $this->input($field);
+
+            if (blank($value)) {
+                continue;
+            }
+
+            try {
+                $this->merge([
+                    $field => Carbon::parse($value)
+                        ->setTimezone(config('app.timezone'))
+                        ->format('Y-m-d H:i:s'),
+                ]);
+            } catch (\Throwable) {
+                // Leave invalid values untouched so the date rule reports them.
+            }
+        }
     }
 
     public function rules(): array

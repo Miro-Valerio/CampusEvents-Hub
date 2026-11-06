@@ -66,7 +66,7 @@ export default function NotificationBell({
             <div className="notification-empty">
               <Bell size={20} />
               <span>No notifications yet.</span>
-              <small>New announcements will show up here.</small>
+              <small>New announcements and event updates will show up here.</small>
             </div>
           ) : (
             <div className="notification-list">
@@ -85,7 +85,9 @@ export default function NotificationBell({
                       {notification.data?.organizer || "SPC Campus"}
                       {notification.data?.course
                         ? ` · ${notification.data.course}`
-                        : " · Campus-wide"}
+                        : notification.data?.type?.startsWith("event")
+                          ? " · Event update"
+                          : " · Campus-wide"}
                       {notification.created_at
                         ? ` · ${prettyDate(notification.created_at)}`
                         : ""}
