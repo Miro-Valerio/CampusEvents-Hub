@@ -92,3 +92,64 @@
 .my-rsvps-shortcut {
   white-space: nowrap;
 }
+
+.mobile-menu-wrap {
+  display: none;
+  position: relative;
+}
+
+.mobile-menu-toggle {
+  display: grid;
+  place-items: center;
+  width: 42px;
+  height: 42px;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: #fff;
+  color: var(--red);
+}
+
+.mobile-navigation-menu {
+  position: absolute;
+  z-index: 20;
+  top: calc(100% + 12px);
+  right: 0;
+  display: grid;
+  min-width: 210px;
+  padding: 8px;
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  background: #fff;
+  box-shadow: 0 12px 30px rgba(74, 22, 13, 0.16);
+}
+
+.mobile-navigation-menu a,
+.mobile-navigation-menu button {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  min-height: 42px;
+  padding: 10px 12px;
+  border: 0;
+  border-radius: 9px;
+  background: transparent;
+  color: var(--muted-2);
+  font-size: 13px;
+  font-weight: 600;
+  text-align: left;
+}
+
+.mobile-navigation-menu a.active,
+.mobile-navigation-menu a:hover,
+.mobile-navigation-menu button:hover {
+  background: var(--peach-soft);
+  color: var(--red);
+}
+
+.mobile-navigation-menu button {
+  margin-top: 4px;
+  border-top: 1px solid var(--border);
+  border-radius: 0 0 9px 9px;
+  color: var(--red);
+}

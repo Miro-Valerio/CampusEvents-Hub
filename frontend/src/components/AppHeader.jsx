@@ -1,5 +1,5 @@
-import React from "react";
-import { CalendarDays, LogIn, LogOut, Loader2 } from "lucide-react";
+import React, { useEffect, useRef, useState } from "react";
+import { CalendarDays, LogIn, LogOut, Loader2, Menu, X } from "lucide-react";
 import NotificationBell from "./NotificationBell";
 
 export default function AppHeader({
@@ -19,6 +19,25 @@ export default function AppHeader({
   onMarkAllNotificationsRead,
   onOpenNotifications,
 }) {
+  const [menuOpen, setMenuOpen] = useState(false);
+  const menuRef = useRef(null);
+
+  useEffect(() => {
+    if (!menuOpen) return undefined;
+    const closeOnOutsideClick = (event) => {
+      if (menuRef.current && !menuRef.current.contains(event.target)) setMenuOpen(false);
+    };
+    const closeOnEscape = (event) => {
+      if (event.key === "Escape") setMenuOpen(false);
+    };
+    document.addEventListener("mousedown", closeOnOutsideClick);
+    document.addEventListener("keydown", closeOnEscape);
+    return () => {
+      document.removeEventListener("mousedown", closeOnOutsideClick);
+      document.removeEventListener("keydown", closeOnEscape);
+    };
+  }, [menuOpen]);
+
   const link = (target, label, requiresLogin = false) => (
     <a
       className={view === target ? "active" : ""}
@@ -26,6 +45,19 @@ export default function AppHeader({
       onClick={(e) => {
         e.preventDefault();
         onNavigate(target, requiresLogin);
+      }}
+    >
+      {label}
+    </a>
+  );
+  const menuLink = (target, label) => (
+    <a
+      className={view === target ? "active" : ""}
+      href={`#${target}`}
+      onClick={(event) => {
+        event.preventDefault();
+        setMenuOpen(false);
+        onNavigate(target, true);
       }}
     >
       {label}
@@ -77,7 +109,7 @@ export default function AppHeader({
             />
             <span className="user-name">Hi, {user.name}</span>
             <button
-              className="btn btn-outline"
+              className="btn btn-outline topbar-logout"
               type="button"
               onClick={onLogout}
               disabled={isLoggingOut}
@@ -90,6 +122,43 @@ export default function AppHeader({
               )}
               {isLoggingOut ? "Logging out..." : "Log out"}
             </button>
+            <div className="mobile-menu-wrap" ref={menuRef}>
+              <button
+                className="mobile-menu-toggle"
+                type="button"
+                aria-label={menuOpen ? "Close navigation menu" : "Open navigation menu"}
+                aria-expanded={menuOpen}
+                aria-controls="mobile-navigation-menu"
+                onClick={() => setMenuOpen((open) => !open)}
+              >
+                {menuOpen ? <X size={21} /> : <Menu size={21} />}
+              </button>
+              {menuOpen && (
+                <div className="mobile-navigation-menu" id="mobile-navigation-menu">
+                  {menuLink("archive", "Archive")}
+                  {user?.role === "student" && (
+                    <>
+                      {menuLink("my-rsvps", "My RSVPs")}
+                      {menuLink("check-in-history", "Check-in history")}
+                      {menuLink("saved", "Bookmarks")}
+                      {menuLink("my-calendar", "My list")}
+                    </>
+                  )}
+                  {user?.role === "organizer" && menuLink("dashboard", "Organizer Dashboard")}
+                  <button type="button" onClick={() => {
+                    setMenuOpen(false);
+                    onLogout();
+                  }} disabled={isLoggingOut}>
+                    {isLoggingOut ? (
+                      <Loader2 size={16} className="auth-spinner" aria-hidden="true" />
+                    ) : (
+                      <LogOut size={16} />
+                    )}
+                    {isLoggingOut ? "Logging out..." : "Log out"}
+                  </button>
+                </div>
+              )}
+            </div>
           </>
         ) : (
           <button className="btn btn-primary" onClick={onLogin}>
