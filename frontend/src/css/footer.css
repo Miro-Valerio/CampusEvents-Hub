@@ -1,0 +1,47 @@
+.bottom-cta {
+  display: flex;
+  align-items: center;
+  gap: 24px;
+  max-width: 1200px;
+  margin: 0 auto 36px;
+  padding: 26px 30px;
+  border-radius: 22px;
+  background: linear-gradient(110deg, #f5d3c6 0%, #c45a40 42%, #821100 100%);
+  color: #fff;
+}
+
+.bottom-cta .cta-icon {
+  display: grid;
+  place-items: center;
+  width: 54px;
+  height: 54px;
+  border-radius: 16px;
+  background: rgba(255, 255, 255, 0.14);
+}
+
+.bottom-cta h2 {
+  margin: 0 0 6px;
+  font-family: "Manrope", sans-serif;
+  font-size: 30px;
+  line-height: 1.2;
+}
+
+.bottom-cta p {
+  margin: 0;
+  color: rgba(255, 255, 255, 0.85);
+}
+
+footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 18px max(calc((100vw - 1200px) / 2), 5.5%) 36px;
+  color: #7a5d59;
+  font-size: 12px;
+}
+
+footer b {
+  color: var(--red);
+}
+

@@ -1,0 +1,94 @@
+/* -------------------------
+   Header / Navigation
+------------------------- */
+.topbar {
+  height: 82px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 24px;
+  padding: 0 max(calc((100vw - 1200px) / 2), 5.5%);
+  background: #fff;
+  border-bottom: 1px solid var(--border);
+}
+
+.brand {
+  display: flex;
+  align-items: center;
+  gap: 11px;
+  color: var(--red);
+  font-family: "Manrope", sans-serif;
+  font-size: 17px;
+  font-weight: 800;
+  line-height: 1.2;
+}
+
+.brand-icon {
+  display: grid;
+  place-items: center;
+  width: 43px;
+  height: 43px;
+  border-radius: 13px;
+  background: var(--peach);
+  color: var(--red);
+}
+
+.brand-accent {
+  color: var(--red);
+}
+
+.brand small {
+  display: block;
+  margin-top: 5px;
+  font-family: "DM Sans", sans-serif;
+  letter-spacing: 2px;
+  font-size: 9px;
+  color: #9b7168;
+}
+
+.topbar nav {
+  display: flex;
+  align-items: center;
+  gap: 34px;
+  height: 100%;
+}
+
+.topbar nav a {
+  position: relative;
+  display: flex;
+  align-items: center;
+  height: 100%;
+  color: var(--muted);
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.topbar nav a.active {
+  color: var(--red);
+}
+
+.topbar nav a.active::after {
+  content: "";
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: 3px;
+  background: var(--red);
+  border-radius: 4px 4px 0 0;
+}
+
+.account {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+
+.user-name {
+  font-size: 13px;
+  color: var(--muted-2);
+}
+
+.my-rsvps-shortcut {
+  white-space: nowrap;
+}

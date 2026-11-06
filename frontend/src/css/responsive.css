@@ -1,0 +1,330 @@
+/* -------------------------
+   Responsive
+------------------------- */
+@media (max-width: 1250px) {
+  .hero,
+  .events-section,
+  .bottom-cta {
+    margin-left: 5%;
+    margin-right: 5%;
+  }
+
+  .hero {
+    padding-left: 4%;
+    padding-right: 4%;
+  }
+
+  .filter-panel {
+    flex-wrap: wrap;
+  }
+
+  .search-box {
+    flex-basis: 35%;
+  }
+
+  .filter-field {
+    min-width: 130px;
+  }
+
+  .events-section {
+    padding-top: 50px;
+  }
+
+  .notice,
+  .error-banner {
+    margin-left: 5%;
+    margin-right: 5%;
+  }
+}
+
+@media (max-width: 760px) {
+  .topbar {
+    height: 70px;
+    gap: 10px;
+    padding: 0 5%;
+  }
+
+  .brand {
+    font-size: 14px;
+    gap: 8px;
+  }
+
+  .brand-icon {
+    width: 37px;
+    height: 37px;
+  }
+
+  .topbar nav {
+    display: none;
+  }
+
+  .account {
+    margin-left: auto;
+    gap: 7px;
+  }
+
+  .user-name {
+    display: none;
+  }
+
+  .topbar .btn {
+    padding: 10px 12px;
+    font-size: 11px;
+  }
+
+  .hero {
+    display: block;
+    margin: 0;
+    padding: 44px 6% 35px;
+  }
+
+  .hero h1 {
+    font-size: 45px;
+    letter-spacing: -1.8px;
+  }
+
+  .hero-copy > p {
+    font-size: 13px;
+  }
+
+  .hero-stats {
+    gap: 25px;
+    margin-top: 28px;
+  }
+
+  .hero-art {
+    height: 290px;
+    margin-top: 16px;
+  }
+
+  .orb-one {
+    width: 260px;
+    height: 260px;
+  }
+
+  .orb-two {
+    width: 200px;
+    height: 200px;
+  }
+
+  .hero-ticket {
+    right: 0;
+    bottom: 10px;
+    width: 230px;
+    min-height: 235px;
+    padding: 20px;
+  }
+
+  .hero-ticket b {
+    font-size: 20px;
+  }
+
+  .floating-card {
+    right: -5px;
+    top: 7px;
+  }
+
+  .tiny-pill {
+    right: 0;
+    bottom: 7px;
+  }
+
+  .events-section {
+    margin: 0;
+    padding: 43px 5% 50px;
+  }
+
+  .section-heading h2 {
+    font-size: 28px;
+  }
+
+  .section-heading p {
+    max-width: 300px;
+    line-height: 1.6;
+  }
+
+  .results-count {
+    display: none;
+  }
+
+  .filter-panel {
+    padding: 12px;
+    gap: 9px;
+  }
+
+  .search-box {
+    flex-basis: 100%;
+    min-width: 0;
+  }
+
+  .filter-field {
+    flex-basis: calc(50% - 6px);
+    min-width: 0;
+  }
+
+  .sort-field {
+    max-width: none;
+  }
+
+  .reset-btn {
+    flex: 1;
+  }
+
+  .event-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 13px;
+  }
+
+  .poster {
+    height: 135px;
+    padding: 10px;
+  }
+
+  .category-tag {
+    font-size: 8px;
+    padding: 6px 7px;
+  }
+
+  .save-btn {
+    width: 29px;
+    height: 29px;
+  }
+
+  .event-card-body {
+    padding: 14px 12px;
+  }
+
+  .event-card h3 {
+    min-height: 55px;
+    font-size: 14px;
+  }
+
+  .event-meta {
+    font-size: 10px;
+  }
+
+  .seat-copy {
+    font-size: 9px;
+  }
+
+  .details-link {
+    font-size: 10px;
+    padding: 10px;
+  }
+
+  .organizer-link {
+    font-size: 9px;
+  }
+
+  .bottom-cta {
+    margin: 0 5% 40px;
+    padding: 22px;
+    flex-wrap: wrap;
+  }
+
+  .bottom-cta h2 {
+    font-size: 16px;
+  }
+
+  .bottom-cta p {
+    line-height: 1.5;
+  }
+
+  .bottom-cta .btn {
+    margin-left: 70px;
+  }
+
+  footer {
+    padding: 0 5%;
+    font-size: 9px;
+  }
+
+  .notice,
+  .error-banner {
+    margin: 12px 5% 0;
+  }
+
+  .modal-content {
+    padding: 22px;
+  }
+
+  .auth-modal {
+    padding: 28px 23px;
+  }
+
+  .my-rsvps-shortcut {
+    padding: 9px 10px;
+    font-size: 10px;
+  }
+
+  .rsvp-confirmation {
+    padding: 28px 22px;
+  }
+}
+
+@media (max-width: 430px) {
+  .event-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .poster {
+    height: 175px;
+  }
+
+  .event-card h3 {
+    min-height: 0;
+    font-size: 17px;
+  }
+
+  .event-card-body {
+    padding: 18px;
+  }
+
+  .hero-stats {
+    gap: 18px;
+  }
+
+  .hero-stats b {
+    font-size: 17px;
+  }
+
+  .hero-stats span {
+    font-size: 9px;
+  }
+
+  .section-heading h2 {
+    font-size: 26px;
+  }
+
+  .bottom-cta {
+    gap: 13px;
+  }
+
+  .bottom-cta .btn {
+    margin-left: 0;
+  }
+
+  .floating-card {
+    right: -9px;
+    transform: scale(0.9) rotate(-3deg);
+    transform-origin: right top;
+  }
+}
+
+
+.topbar nav {
+  gap: 22px;
+}
+
+@media (max-width: 900px) {
+  .event-page-grid { grid-template-columns: 1fr; }
+  .event-hero { height: 220px; }
+}
+
+@media (max-width: 760px) {
+  .topbar { height: auto; flex-wrap: wrap; padding: 10px 5% 0; }
+  .topbar nav { display: flex; order: 3; width: 100%; height: 44px; gap: 18px; overflow-x: auto; white-space: nowrap; }
+  .cal-cell { min-height: 64px; padding: 4px; }
+  .cal-chip { font-size: 9px; padding: 2px 3px; }
+  .photo-strip img { height: 44px; }
+}
