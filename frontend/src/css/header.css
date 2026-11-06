@@ -89,6 +89,10 @@
   color: var(--muted-2);
 }
 
+.topbar-logout {
+  display: none;
+}
+
 .my-rsvps-shortcut {
   white-space: nowrap;
 }
