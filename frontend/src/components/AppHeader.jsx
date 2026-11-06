@@ -4,6 +4,7 @@ import NotificationBell from "./NotificationBell";
 
 export default function AppHeader({
   user,
+  authChecking,
   isLoggingOut,
   view,
   notifications,
@@ -105,9 +106,13 @@ export default function AppHeader({
             <span className="user-name">Hi, {user.name}</span>
           </>
         ) : (
-          <button className="btn btn-primary" onClick={onLogin}>
-            <LogIn size={16} /> Log in
-          </button>
+          authChecking ? (
+            <span className="user-name" role="status">Checking session...</span>
+          ) : (
+            <button className="btn btn-primary" onClick={onLogin}>
+              <LogIn size={16} /> Log in
+            </button>
+          )
         )}
         {user && (
           <div className="mobile-menu-wrap" ref={menuRef}>

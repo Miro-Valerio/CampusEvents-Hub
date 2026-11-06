@@ -43,6 +43,24 @@ import "./css/responsive.css";
 const API = import.meta.env.VITE_API_URL || "http://127.0.0.1:8000/api";
 const http = axios.create({ baseURL: API });
 const tokenKey = "ceh_token";
+const userCacheKey = "ceh_user_cache_v1";
+const readCachedUser = () => {
+  const token = localStorage.getItem(tokenKey);
+  if (!token) return null;
+  try {
+    const cached = JSON.parse(localStorage.getItem(userCacheKey) || "null");
+    return cached?.token === token ? cached.user : null;
+  } catch {
+    return null;
+  }
+};
+const cacheUser = (token, user) => {
+  try {
+    localStorage.setItem(userCacheKey, JSON.stringify({ token, user }));
+  } catch {
+    // Login state remains available from the token if browser storage is full.
+  }
+};
 const publicCachePrefix = "ceh_public_cache_v1:";
 const readCache = (key) => {
   try {
@@ -140,7 +158,10 @@ function App() {
   const [authMode, setAuthMode] = useState("login");
   const [authSubmitting, setAuthSubmitting] = useState(false);
   const [loggingOut, setLoggingOut] = useState(false);
-  const [user, setUser] = useState(null);
+  const [user, setUser] = useState(readCachedUser);
+  const [authChecking, setAuthChecking] = useState(
+    () => Boolean(localStorage.getItem(tokenKey) && !readCachedUser()),
+  );
   const [notice, setNotice] = useState("");
   const [error, setError] = useState("");
   const [retryAction, setRetryAction] = useState(null);
@@ -314,13 +335,22 @@ function App() {
       .get("/user")
       .then(({ data }) => {
         if (localStorage.getItem(tokenKey) !== token) return;
+        cacheUser(token, data);
         setUser(data);
+        setAuthChecking(false);
         if (data?.role === "organizer") setView("dashboard");
         return Promise.all([loadMyLists(), loadNotifications(), loadAnnouncements()]);
       })
-      .catch(() => {
+      .catch((err) => {
         if (localStorage.getItem(tokenKey) === token) {
-          localStorage.removeItem(tokenKey);
+          if ([401, 403].includes(err.response?.status)) {
+            localStorage.removeItem(tokenKey);
+            localStorage.removeItem(userCacheKey);
+            setUser(null);
+            setAuthChecking(false);
+          } else if (!readCachedUser()) {
+            showError("Could not verify your saved session. Check your connection and retry.");
+          }
         }
       });
   }, []);
@@ -382,7 +412,9 @@ function App() {
     try {
       const { data } = await http.post(authMode === "login" ? "/login" : "/register", authForm);
       localStorage.setItem(tokenKey, data.token);
+      cacheUser(data.token, data.user);
       setUser(data.user);
+      setAuthChecking(false);
       setView(data.user?.role === "organizer" ? "dashboard" : "discover");
       setSelected(null);
       setAuthOpen(false);
@@ -415,7 +447,9 @@ function App() {
       }
     } finally {
       localStorage.removeItem(tokenKey);
+      localStorage.removeItem(userCacheKey);
       setUser(null);
+      setAuthChecking(false);
       setMyRsvps([]);
       setSaved([]);
       setCalendarList([]);
@@ -652,6 +686,7 @@ function App() {
     <div className="app-shell">
       <AppHeader
         user={user}
+        authChecking={authChecking}
         isLoggingOut={loggingOut}
         view={view}
         notifications={notifications}
