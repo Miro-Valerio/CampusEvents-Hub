@@ -13,9 +13,11 @@ use App\Notifications\EventTimeChanged;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\Facades\Notification;
+use Illuminate\Support\Facades\Storage;
 
 class OrganizerDashboardController extends Controller
 {
@@ -32,7 +34,13 @@ class OrganizerDashboardController extends Controller
 
     public function store(OrganizerEventRequest $request): JsonResponse
     {
-        $event = $request->user()->organizer->events()->create($request->validated());
+        $data = $request->validated();
+        unset($data['poster']);
+        if ($request->hasFile('poster')) {
+            $data['poster_url'] = $this->storePoster($request->file('poster'));
+        }
+
+        $event = $request->user()->organizer->events()->create($data);
 
         return response()->json($event->loadCount([
             'rsvps as active_rsvps_count' => fn (Builder $query) => $query->where('status', Rsvp::STATUS_GOING),
@@ -42,10 +50,19 @@ class OrganizerDashboardController extends Controller
     public function update(OrganizerEventRequest $request, Event $event): JsonResponse
     {
         Gate::authorize('update', $event);
+        $oldPosterUrl = $event->poster_url;
         $previousStartsAt = $event->starts_at?->toIso8601String();
         $previousEndsAt = $event->ends_at?->toIso8601String();
-        $event->update($request->validated());
+        $data = $request->validated();
+        unset($data['poster']);
+        if ($request->hasFile('poster')) {
+            $data['poster_url'] = $this->storePoster($request->file('poster'));
+        }
+        $event->update($data);
         $event->refresh();
+        if ($request->hasFile('poster')) {
+            $this->deleteStoredPoster($oldPosterUrl);
+        }
 
         if (
             $previousStartsAt !== $event->starts_at?->toIso8601String()
@@ -65,9 +82,35 @@ class OrganizerDashboardController extends Controller
     public function destroy(Event $event): JsonResponse
     {
         Gate::authorize('delete', $event);
+        $posterUrl = $event->poster_url;
         $event->delete();
+        $this->deleteStoredPoster($posterUrl);
 
         return response()->json(['message' => 'Event deleted successfully.']);
+    }
+
+    private function storePoster(UploadedFile $poster): string
+    {
+        $path = $poster->storePublicly('event-posters', 'public');
+        if ($path === false) {
+            throw new \RuntimeException('The event poster could not be stored.');
+        }
+
+        return Storage::disk('public')->url($path);
+    }
+
+    private function deleteStoredPoster(?string $url): void
+    {
+        if (! $url) {
+            return;
+        }
+
+        $path = parse_url($url, PHP_URL_PATH);
+        if (! is_string($path) || ! str_starts_with($path, '/storage/event-posters/')) {
+            return;
+        }
+
+        Storage::disk('public')->delete(substr($path, strlen('/storage/')));
     }
 
     public function attendees(Event $event): JsonResponse

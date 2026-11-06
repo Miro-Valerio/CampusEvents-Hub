@@ -7,6 +7,8 @@ use App\Models\Organizer;
 use App\Models\Rsvp;
 use App\Models\User;
 use Illuminate\Foundation\Testing\LazilyRefreshDatabase;
+use Illuminate\Http\UploadedFile;
+use Illuminate\Support\Facades\Storage;
 use Tests\TestCase;
 
 class CampusEventsApiTest extends TestCase
@@ -237,6 +239,39 @@ class CampusEventsApiTest extends TestCase
             ->assertOk()
             ->assertJsonPath('message', 'Event deleted successfully.');
         $this->assertDatabaseMissing('events', ['id' => $eventId]);
+    }
+
+    public function test_organizer_can_upload_and_replace_an_event_poster(): void
+    {
+        Storage::fake('public');
+        [$user] = $this->createOrganizer();
+        $token = $user->createToken('feature-test')->plainTextToken;
+
+        $created = $this->withToken($token)
+            ->post('/api/organizer/events', array_merge($this->eventData(), [
+                'poster' => UploadedFile::fake()->image('first-poster.jpg'),
+            ]), ['Accept' => 'application/json'])
+            ->assertCreated()
+            ->assertJsonPath('poster_url', fn (string $url): bool => str_contains($url, '/storage/event-posters/'));
+
+        $eventId = $created->json('id');
+        $oldPosterPath = substr((string) parse_url($created->json('poster_url'), PHP_URL_PATH), strlen('/storage/'));
+        Storage::disk('public')->assertExists($oldPosterPath);
+
+        $updated = $this->withToken($token)
+            ->post("/api/organizer/events/{$eventId}", array_merge($this->eventData([
+                'title' => 'Event with replacement poster',
+            ]), [
+                '_method' => 'PUT',
+                'poster' => UploadedFile::fake()->image('replacement-poster.png'),
+            ]), ['Accept' => 'application/json'])
+            ->assertOk()
+            ->assertJsonPath('title', 'Event with replacement poster');
+
+        $newPosterPath = substr((string) parse_url($updated->json('poster_url'), PHP_URL_PATH), strlen('/storage/'));
+        $this->assertNotSame($oldPosterPath, $newPosterPath);
+        Storage::disk('public')->assertMissing($oldPosterPath);
+        Storage::disk('public')->assertExists($newPosterPath);
     }
 
     public function test_organizer_can_manage_attendees_photos_profile_and_stats(): void

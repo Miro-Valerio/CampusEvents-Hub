@@ -85,6 +85,7 @@ export default function OrganizerDashboard({
   const [busy, setBusy] = useState("");
   const [editingId, setEditingId] = useState(null);
   const [eventForm, setEventForm] = useState(emptyEvent);
+  const [posterFile, setPosterFile] = useState(null);
   const [profileForm, setProfileForm] = useState({
     name: organizer?.name || "",
     description: organizer?.description || "",
@@ -128,6 +129,7 @@ export default function OrganizerDashboard({
   const startEdit = (event) => {
     setEditingId(event.id);
     setEventForm(eventToForm(event));
+    setPosterFile(null);
     window.scrollTo({ top: 0, behavior: "smooth" });
   };
 
@@ -136,14 +138,17 @@ export default function OrganizerDashboard({
     setBusy("event");
     setDashboardError(null);
     setValidationMessages([]);
-    const payload = {
+    const payload = new FormData();
+    Object.entries({
       ...eventForm,
       capacity: Number(eventForm.capacity),
-      ends_at: eventForm.ends_at || null,
-    };
+      ends_at: eventForm.ends_at || "",
+    }).forEach(([key, value]) => payload.append(key, value ?? ""));
+    if (posterFile) payload.append("poster", posterFile);
     try {
       if (editingId) {
-        await http.put(`/organizer/events/${editingId}`, payload);
+        payload.append("_method", "PUT");
+        await http.post(`/organizer/events/${editingId}`, payload);
         onNotice("Event updated.");
       } else {
         await http.post("/organizer/events", payload);
@@ -151,6 +156,7 @@ export default function OrganizerDashboard({
       }
       setEditingId(null);
       setEventForm(emptyEvent());
+      setPosterFile(null);
       await loadDashboard();
     } catch (error) {
       reportError(error, () => saveEvent());
@@ -453,6 +459,7 @@ export default function OrganizerDashboard({
                 onClick={() => {
                   setEditingId(null);
                   setEventForm(emptyEvent());
+                  setPosterFile(null);
                 }}
               >
                 <X size={18} />
@@ -527,14 +534,14 @@ export default function OrganizerDashboard({
               />
             </label>
             <label>
-              Poster URL
+              Event poster photo
               <input
-                type="url"
-                value={eventForm.poster_url}
-                onChange={(event) =>
-                  setEventForm((current) => ({ ...current, poster_url: event.target.value }))
-                }
+                type="file"
+                accept="image/jpeg,image/png,image/webp"
+                onChange={(event) => setPosterFile(event.target.files?.[0] || null)}
               />
+              <small>JPG, PNG, or WebP; up to 5 MB. Leave empty to keep the current poster.</small>
+              {posterFile && <small>Selected: {posterFile.name}</small>}
             </label>
             <label className="dashboard-wide">
               Description

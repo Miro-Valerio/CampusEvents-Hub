@@ -18,6 +18,7 @@ class OrganizerEventRequest extends FormRequest
             'title' => ['required', 'string', 'max:190'],
             'description' => ['required', 'string', 'max:10000'],
             'poster_url' => ['nullable', 'url', 'max:2048'],
+            'poster' => ['nullable', 'image', 'mimes:jpg,jpeg,png,webp', 'max:5120'],
             'venue' => ['required', 'string', 'max:190'],
             'starts_at' => ['required', 'date'],
             'ends_at' => ['nullable', 'date', 'after:starts_at'],
