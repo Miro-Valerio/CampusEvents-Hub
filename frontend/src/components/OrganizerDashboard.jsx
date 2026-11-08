@@ -178,10 +178,10 @@ export default function OrganizerDashboard({
       if (editingId) {
         payload.append("_method", "PUT");
         await http.post(`/organizer/events/${editingId}`, payload);
-        onNotice("Event updated.");
+        onNotice("Event updated successfully.");
       } else {
         await http.post("/organizer/events", payload);
-        onNotice("Event created.");
+        onNotice("Event posted successfully and is now visible on Discover.");
       }
       setEditingId(null);
       setEventForm(emptyEvent());
@@ -222,7 +222,7 @@ export default function OrganizerDashboard({
         pinned: Boolean(announcementForm.pinned),
       });
       setAnnouncementForm(emptyAnnouncement());
-      onNotice("Announcement posted to the campus feed.");
+      onNotice("Announcement posted successfully.");
       await loadDashboard();
     } catch (error) {
       reportError(error, () => saveAnnouncement());

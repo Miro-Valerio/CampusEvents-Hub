@@ -459,10 +459,10 @@ export default function AdminDashboard({ http, onNotice }) {
       };
       if (editingAnnouncementId) {
         await http.put(`/admin/announcements/${editingAnnouncementId}`, payload);
-        onNotice("Announcement updated.");
+        onNotice("Announcement updated successfully.");
       } else {
         await http.post("/admin/announcements", payload);
-        onNotice("Announcement published.");
+        onNotice("Announcement published successfully.");
       }
       setAnnouncementForm(DEFAULT_ANNOUNCEMENT_FORM);
       setEditingAnnouncementId(null);
