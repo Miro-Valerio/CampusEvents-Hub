@@ -249,7 +249,9 @@
   }
 
   .auth-modal {
-    padding: 28px 23px;
+    max-height: calc(100vh - 24px);
+    max-height: calc(100dvh - 24px);
+    padding: 24px 20px;
   }
 
   .my-rsvps-shortcut {
@@ -259,6 +261,42 @@
 
   .rsvp-confirmation {
     padding: 28px 22px;
+  }
+}
+
+@media (max-width: 430px), (max-height: 620px) {
+  .modal-backdrop {
+    padding: 12px;
+  }
+
+  .auth-modal {
+    max-height: calc(100vh - 24px);
+    max-height: calc(100dvh - 24px);
+    padding: 22px 18px 18px;
+    border-radius: 20px;
+  }
+
+  .auth-mark {
+    width: 48px;
+    height: 48px;
+    margin-bottom: 12px;
+  }
+
+  .auth-modal h2 {
+    font-size: 25px;
+  }
+
+  .auth-modal p {
+    margin-bottom: 14px;
+  }
+
+  .auth-modal form {
+    gap: 11px;
+  }
+
+  .auth-modal input,
+  .auth-modal select {
+    min-height: 44px;
   }
 }
 

@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useEffect } from "react";
 import { CalendarDays, Loader2, X } from "lucide-react";
 import { COURSES, DEPARTMENTS } from "../constants";
 
@@ -13,6 +13,15 @@ export default function AuthModal({
   error,
   isSubmitting,
 }) {
+  useEffect(() => {
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+
+    return () => {
+      document.body.style.overflow = previousOverflow;
+    };
+  }, []);
+
   return (
     <div className="modal-backdrop" onClick={isSubmitting ? undefined : onClose}>
       <div
