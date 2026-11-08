@@ -7,6 +7,7 @@ use Database\Factories\UserFactory;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Attributes\Hidden;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\HasOne;
@@ -14,7 +15,7 @@ use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
 use Laravel\Sanctum\HasApiTokens;
 
-#[Fillable(['name', 'email', 'password', 'course', 'department', 'profile_photo_url', 'notification_preferences'])]
+#[Fillable(['name', 'email', 'password', 'role', 'course', 'department', 'profile_photo_url', 'notification_preferences', 'is_active'])]
 #[Hidden(['password', 'remember_token'])]
 class User extends Authenticatable
 {
@@ -32,6 +33,7 @@ class User extends Authenticatable
             'email_verified_at' => 'datetime',
             'password' => 'hashed',
             'notification_preferences' => 'array',
+            'is_active' => 'boolean',
         ];
     }
 
@@ -53,6 +55,23 @@ class User extends Authenticatable
     public function organizer(): HasOne
     {
         return $this->hasOne(Organizer::class);
+    }
+
+    public function organizations(): BelongsToMany
+    {
+        return $this->belongsToMany(Organizer::class)
+            ->withPivot('membership_role')
+            ->withTimestamps();
+    }
+
+    public function departmentRecord(): BelongsTo
+    {
+        return $this->belongsTo(Department::class, 'department', 'code');
+    }
+
+    public function invitations(): HasMany
+    {
+        return $this->hasMany(UserInvitation::class);
     }
 
     public function announcements(): HasMany

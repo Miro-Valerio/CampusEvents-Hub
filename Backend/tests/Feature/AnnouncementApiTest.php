@@ -3,6 +3,7 @@
 namespace Tests\Feature;
 
 use App\Models\Announcement;
+use App\Models\Department;
 use App\Models\Organizer;
 use App\Models\User;
 use Illuminate\Foundation\Testing\LazilyRefreshDatabase;
@@ -18,12 +19,14 @@ class AnnouncementApiTest extends TestCase
      */
     private function createOrganizer(string $email = 'organizer@example.com'): array
     {
-        $user = User::factory()->create(['email' => $email]);
+        $department = Department::query()->where('code', 'CCS')->firstOrFail();
+        $user = User::factory()->create(['email' => $email, 'department' => $department->code]);
         $user->role = 'organizer';
         $user->save();
         $organizer = $user->organizer()->create([
             'name' => 'Test Organization',
             'description' => 'Organization description',
+            'department_id' => $department->id,
         ]);
 
         return [$user, $organizer];
@@ -82,7 +85,7 @@ class AnnouncementApiTest extends TestCase
             'pinned' => true,
         ]);
 
-        $student = User::factory()->create(['course' => 'BS Information Technology']);
+        $student = User::factory()->create(['course' => 'BS Information Technology', 'department' => 'CCS']);
         $studentToken = $student->createToken('feature-test')->plainTextToken;
 
         $this->useToken($studentToken)
@@ -103,8 +106,8 @@ class AnnouncementApiTest extends TestCase
         [$organizerUser] = $this->createOrganizer();
         $token = $organizerUser->createToken('feature-test')->plainTextToken;
 
-        $itStudent = User::factory()->create(['course' => 'BS Information Technology']);
-        $businessStudent = User::factory()->create(['course' => 'BS Business Administration']);
+        $itStudent = User::factory()->create(['course' => 'BS Information Technology', 'department' => 'CCS']);
+        $businessStudent = User::factory()->create(['course' => 'BS Business Administration', 'department' => 'CCS']);
 
         $this->useToken($token)
             ->postJson('/api/organizer/announcements', $this->announcementData([
@@ -119,7 +122,7 @@ class AnnouncementApiTest extends TestCase
 
         $this->useToken($token)
             ->postJson('/api/organizer/announcements', $this->announcementData([
-                'title' => 'Campus-wide announcement',
+                'title' => 'Department-wide announcement',
             ]))
             ->assertCreated();
 
@@ -132,7 +135,7 @@ class AnnouncementApiTest extends TestCase
     {
         [$organizerUser] = $this->createOrganizer();
         $organizerToken = $organizerUser->createToken('feature-test')->plainTextToken;
-        $student = User::factory()->create();
+        $student = User::factory()->create(['department' => 'CCS']);
         $student->forceFill(['notification_preferences' => ['announcements' => false]])->save();
 
         $this->useToken($organizerToken)
@@ -146,7 +149,7 @@ class AnnouncementApiTest extends TestCase
     {
         [$organizerUser] = $this->createOrganizer();
         $organizerToken = $organizerUser->createToken('feature-test')->plainTextToken;
-        $student = User::factory()->create();
+        $student = User::factory()->create(['department' => 'CCS']);
         $studentToken = $student->createToken('feature-test')->plainTextToken;
 
         $this->useToken($organizerToken)
@@ -169,6 +172,35 @@ class AnnouncementApiTest extends TestCase
         $this->useToken($studentToken)
             ->getJson('/api/notifications')
             ->assertJsonPath('unread_count', 0);
+    }
+
+    public function test_old_department_announcement_notifications_are_hidden_after_department_change(): void
+    {
+        [$organizerUser] = $this->createOrganizer();
+        $organizerToken = $organizerUser->createToken('feature-test')->plainTextToken;
+        $student = User::factory()->create(['department' => 'CCS']);
+        $studentToken = $student->createToken('feature-test')->plainTextToken;
+
+        $this->useToken($organizerToken)
+            ->postJson('/api/organizer/announcements', $this->announcementData(['title' => 'CCS-only notice']))
+            ->assertCreated();
+        $notificationId = $student->notifications()->firstOrFail()->id;
+        $student->update(['department' => 'COE']);
+
+        $this->useToken($studentToken)
+            ->getJson('/api/notifications')
+            ->assertOk()
+            ->assertJsonPath('data', [])
+            ->assertJsonPath('unread_count', 0);
+
+        $this->useToken($studentToken)
+            ->postJson("/api/notifications/{$notificationId}/read")
+            ->assertNotFound();
+
+        $this->useToken($studentToken)
+            ->getJson('/api/announcements')
+            ->assertOk()
+            ->assertJsonCount(0, 'data');
     }
 
     public function test_pinned_announcements_are_returned_first_and_only_owners_can_pin(): void
@@ -390,6 +422,6 @@ class AnnouncementApiTest extends TestCase
             ->deleteJson("/api/organizer/announcements/{$announcement->id}")
             ->assertOk();
 
-        $this->assertDatabaseMissing('announcements', ['id' => $announcement->id]);
+        $this->assertSoftDeleted('announcements', ['id' => $announcement->id]);
     }
 }

@@ -89,6 +89,7 @@ export default function AppHeader({
         {link("calendar", "Calendar")}
         {link("archive", "Archive")}
         {user?.role === "admin" && link("admin-dashboard", "Admin Dashboard", true)}
+        {["organizer", "faculty"].includes(user?.role) && (user?.organizer || user?.organizations?.length) && link("dashboard", "Organizer Dashboard", true)}
       </nav>
       <div className="account" key={user ? `user-${user.id}` : "guest"}>
         {user ? (
@@ -140,7 +141,7 @@ export default function AppHeader({
                     {menuLink("my-calendar", "My list")}
                   </>
                 )}
-                {user.role === "organizer" && menuLink("dashboard", "Organizer Dashboard")}
+                {["organizer", "faculty"].includes(user.role) && (user.organizer || user.organizations?.length) && menuLink("dashboard", "Organizer Dashboard")}
                 {user.role === "admin" && (
                   <a
                     className={view === "admin-dashboard" ? "active" : ""}

@@ -7,21 +7,25 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\SoftDeletes;
 
 class Event extends Model
 {
+    use SoftDeletes;
+
     protected $appends = ['registered_count'];
 
     protected $fillable = [
         'title', 'description', 'poster_url', 'venue', 'starts_at', 'ends_at',
         'category', 'rules', 'capacity', 'baseline_registered_count', 'organizer_id',
-        'is_cancelled', 'views_count',
+        'is_cancelled', 'is_published', 'views_count',
     ];
 
     protected $casts = [
         'starts_at' => 'datetime',
         'ends_at' => 'datetime',
         'is_cancelled' => 'boolean',
+        'is_published' => 'boolean',
         'views_count' => 'integer',
     ];
 

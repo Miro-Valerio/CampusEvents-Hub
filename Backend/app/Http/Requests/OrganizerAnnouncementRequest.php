@@ -21,6 +21,7 @@ class OrganizerAnnouncementRequest extends FormRequest
             'body' => ['required', 'string', 'max:10000'],
             'course' => ['nullable', 'string', 'max:100'],
             'pinned' => ['sometimes', 'boolean'],
+            'organizer_id' => ['nullable', 'integer', 'exists:organizers,id'],
         ];
     }
 }

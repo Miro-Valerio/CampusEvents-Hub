@@ -11,6 +11,7 @@ use App\Models\EventPhoto;
 use App\Models\Rsvp;
 use App\Notifications\EventCancelled;
 use App\Notifications\EventTimeChanged;
+use App\Services\OrganizerAccess;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -24,7 +25,8 @@ class OrganizerDashboardController extends Controller
 {
     public function index(Request $request): JsonResponse
     {
-        $events = $request->user()->organizer->events()
+        $organizationIds = app(OrganizerAccess::class)->query($request->user())->select('organizers.id');
+        $events = Event::query()->whereIn('organizer_id', $organizationIds)
             ->withCount(['rsvps as active_rsvps_count' => fn (Builder $query) => $query->where('status', Rsvp::STATUS_GOING)])
             ->with('photos')
             ->orderByDesc('starts_at')
@@ -36,12 +38,14 @@ class OrganizerDashboardController extends Controller
     public function store(OrganizerEventRequest $request): JsonResponse
     {
         $data = $request->validated();
+        $organizer = app(OrganizerAccess::class)->resolve($request->user(), $data['organizer_id'] ?? null);
+        unset($data['organizer_id']);
         unset($data['poster']);
         if ($request->hasFile('poster')) {
             $data['poster_url'] = $this->storePoster($request->file('poster'));
         }
 
-        $event = $request->user()->organizer->events()->create($data);
+        $event = $organizer->events()->create($data);
 
         return response()->json($event->loadCount([
             'rsvps as active_rsvps_count' => fn (Builder $query) => $query->where('status', Rsvp::STATUS_GOING),
@@ -247,28 +251,29 @@ class OrganizerDashboardController extends Controller
 
     public function stats(Request $request): JsonResponse
     {
-        $organizer = $request->user()->organizer;
-        $eventIds = $organizer->events()->select('id');
+        $organizations = app(OrganizerAccess::class)->query($request->user());
+        $eventIds = Event::query()->whereIn('organizer_id', (clone $organizations)->select('organizers.id'))->select('id');
         $goingRsvps = Rsvp::query()
             ->whereIn('event_id', $eventIds)
             ->where('status', Rsvp::STATUS_GOING);
         $rsvpCount = (clone $goingRsvps)->count();
-        $totalViews = $organizer->events()->sum('views_count');
+        $events = Event::query()->whereIn('organizer_id', (clone $organizations)->select('organizers.id'));
+        $totalViews = (clone $events)->sum('views_count');
 
         return response()->json([
-            'total_events' => $organizer->events()->count(),
-            'upcoming_events' => $organizer->events()
+            'total_events' => (clone $events)->count(),
+            'upcoming_events' => (clone $events)
                 ->whereRaw('COALESCE(ends_at, starts_at) >= ?', [now()])
                 ->count(),
             'total_rsvps' => $rsvpCount,
-            'seats_filled' => (int) $organizer->events()->sum('baseline_registered_count') + $rsvpCount,
+            'seats_filled' => (int) (clone $events)->sum('baseline_registered_count') + $rsvpCount,
             'total_views' => (int) $totalViews,
         ]);
     }
 
     public function updateProfile(OrganizerProfileRequest $request): JsonResponse
     {
-        $organizer = $request->user()->organizer;
+        $organizer = app(OrganizerAccess::class)->resolve($request->user());
         $organizer->update($request->validated());
 
         return response()->json($organizer->fresh());

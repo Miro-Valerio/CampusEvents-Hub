@@ -12,8 +12,6 @@ use Illuminate\Validation\ValidationException;
 
 class UserSettingsController extends Controller
 {
-    private const DEPARTMENTS = ['CCS', 'BSCRIM', 'COE', 'CED', 'CAD', 'CBA'];
-
     private const DEFAULT_PREFERENCES = [
         'event_reminders' => true,
         'event_changes' => true,
@@ -69,7 +67,7 @@ class UserSettingsController extends Controller
                     'BS Mechanical Engineering',
                 ]),
             ],
-            'department' => ['nullable', 'string', Rule::in(self::DEPARTMENTS)],
+            'department' => ['prohibited'],
             'profile_photo' => ['nullable', 'image', 'mimes:jpg,jpeg,png,webp', 'max:5120'],
         ]);
 
@@ -78,7 +76,6 @@ class UserSettingsController extends Controller
         unset($data['profile_photo']);
         if ($user->role !== 'student') {
             $data['course'] = null;
-            $data['department'] = null;
         }
         if ($request->hasFile('profile_photo')) {
             $path = $request->file('profile_photo')->storePublicly('user-profiles', 'public');

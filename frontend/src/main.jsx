@@ -19,6 +19,7 @@ import CheckInHistoryView from "./components/CheckInHistoryView";
 import EventDiscoveryView from "./components/EventDiscoveryView";
 import EventListView from "./components/EventListView";
 import EventPage from "./components/EventPage";
+import InvitationSetupView from "./components/InvitationSetupView";
 import OrganizerDashboard from "./components/OrganizerDashboard";
 import OrganizerPage from "./components/OrganizerPage";
 import OrganizersView from "./components/OrganizersView";
@@ -101,7 +102,8 @@ const prettyDate = (value) =>
 
 function App() {
   // Which page is showing, plus the event / organizer being viewed.
-  const [view, setView] = useState("discover");
+  const invitationToken = new URLSearchParams(window.location.hash.split("?")[1] || "").get("token");
+  const [view, setView] = useState(invitationToken ? "setup-account" : "discover");
   const [selected, setSelected] = useState(null);
   const [organizerPage, setOrganizerPage] = useState(null);
   const [backView, setBackView] = useState("discover");
@@ -339,7 +341,7 @@ function App() {
         cacheUser(token, data);
         setUser(data);
         setAuthChecking(false);
-        if (data?.role === "organizer") setView("dashboard");
+        if (["organizer", "faculty"].includes(data?.role) && (data?.organizer || data?.organizations?.length)) setView("dashboard");
         if (data?.role === "admin") setView("admin-dashboard");
         return Promise.all([loadMyLists(), loadNotifications(), loadAnnouncements()]);
       })
@@ -359,7 +361,10 @@ function App() {
 
   // ---------- navigation ----------
   const go = (target, needsLogin = false) => {
-    if (target === "dashboard" && user?.role !== "organizer") {
+    if (target === "dashboard" && (
+      !["organizer", "faculty"].includes(user?.role)
+      || (!user?.organizer && !user?.organizations?.length)
+    )) {
       target = "discover";
     }
     if (target === "admin-dashboard" && user?.role !== "admin") {
@@ -379,7 +384,10 @@ function App() {
     if (target === "organizers") loadOrganizers();
   };
   useEffect(() => {
-    if (view === "dashboard" && user && user.role !== "organizer") {
+    if (view === "dashboard" && user && (
+      !["organizer", "faculty"].includes(user.role)
+      || (!user.organizer && !user.organizations?.length)
+    )) {
       setView("discover");
     }
     if (view === "admin-dashboard" && user && user.role !== "admin") {
@@ -443,7 +451,10 @@ function App() {
       setAuthChecking(false);
       setView(data.user?.role === "admin"
         ? "admin-dashboard"
-        : data.user?.role === "organizer" ? "dashboard" : "discover");
+        : ["organizer", "faculty"].includes(data.user?.role)
+          && (data.user?.organizer || data.user?.organizations?.length)
+          ? "dashboard"
+          : "discover");
       setSelected(null);
       setAuthOpen(false);
       setNotice(`Welcome${data.user?.name ? `, ${data.user.name}` : ""}!`);
@@ -849,6 +860,18 @@ function App() {
         )}
         {view === "admin-dashboard" && user?.role === "admin" && (
           <AdminDashboard http={http} onNotice={setNotice} />
+        )}
+        {view === "setup-account" && (
+          <InvitationSetupView
+            http={http}
+            token={invitationToken}
+            onLogin={() => {
+              setAuthMode("login");
+              setAuthOpen(true);
+              setView("discover");
+              window.history.replaceState(null, "", window.location.pathname + window.location.search);
+            }}
+          />
         )}
         {view === "announcements" && (
           <AnnouncementsView

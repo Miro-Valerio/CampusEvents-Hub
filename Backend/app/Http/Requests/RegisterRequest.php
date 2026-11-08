@@ -7,8 +7,6 @@ use Illuminate\Validation\Rule;
 
 class RegisterRequest extends FormRequest
 {
-    private const DEPARTMENTS = ['CCS', 'BSCRIM', 'COE', 'CED', 'CAD', 'CBA'];
-
     public function authorize(): bool
     {
         return true;
@@ -22,7 +20,7 @@ class RegisterRequest extends FormRequest
             'password' => ['required', 'string', 'min:8', 'confirmed'],
             'role' => ['prohibited'],
             'course' => ['nullable', 'string', 'max:100'],
-            'department' => ['required', 'string', Rule::in(self::DEPARTMENTS)],
+            'department' => ['required', 'string', Rule::exists('departments', 'code')->where('is_active', true)],
             'organization_name' => ['prohibited'],
             'description' => ['prohibited'],
         ];

@@ -3,12 +3,15 @@
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
+use App\Models\Announcement;
 use App\Models\Event;
 use App\Models\Rsvp;
 use App\Models\User;
 use App\Notifications\EventReminder;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Notifications\DatabaseNotification;
+use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 
 class NotificationController extends Controller
@@ -18,10 +21,9 @@ class NotificationController extends Controller
         $user = $request->user();
         $this->sendDueEventReminders($user);
 
-        $notifications = $user->notifications()
-            ->latest()
-            ->limit(20)
-            ->get()
+        $records = $user->notifications()->latest()->limit(200)->get();
+        $visible = $this->visibleRecords($records, $user);
+        $notifications = $visible->take(20)
             ->map(fn ($notification): array => [
                 'id' => $notification->id,
                 'data' => $notification->data,
@@ -31,7 +33,7 @@ class NotificationController extends Controller
 
         return response()->json([
             'data' => $notifications,
-            'unread_count' => $user->unreadNotifications()->count(),
+            'unread_count' => $this->visibleRecords($user->unreadNotifications()->get(), $user)->count(),
         ]);
     }
 
@@ -72,21 +74,61 @@ class NotificationController extends Controller
     {
         $user = $request->user();
         $record = $user->notifications()->whereKey($notification)->firstOrFail();
+        abort_unless($this->visibleRecords(collect([$record]), $user)->isNotEmpty(), 404);
         $record->markAsRead();
 
         return response()->json([
             'message' => 'Notification marked as read.',
-            'unread_count' => $user->unreadNotifications()->count(),
+            'unread_count' => $this->visibleRecords($user->unreadNotifications()->get(), $user)->count(),
         ]);
     }
 
     public function markAllRead(Request $request): JsonResponse
     {
-        $request->user()->unreadNotifications()->update(['read_at' => now()]);
+        $user = $request->user();
+        $ids = $this->visibleRecords($user->unreadNotifications()->get(), $user)->pluck('id');
+        $user->notifications()->whereIn('id', $ids)->update(['read_at' => now()]);
 
         return response()->json([
             'message' => 'All notifications marked as read.',
             'unread_count' => 0,
         ]);
+    }
+
+    /**
+     * @param  Collection<int, DatabaseNotification>  $records
+     * @return Collection<int, DatabaseNotification>
+     */
+    private function visibleRecords(Collection $records, User $user): Collection
+    {
+        $announcementIds = $records
+            ->map(fn ($record) => $record->data['announcement_id'] ?? null)
+            ->filter()
+            ->unique()
+            ->values();
+        $announcements = Announcement::query()
+            ->with('department:id,code')
+            ->whereIn('id', $announcementIds)
+            ->get()
+            ->keyBy('id');
+
+        return $records->filter(function ($record) use ($announcements, $user): bool {
+            $announcementId = $record->data['announcement_id'] ?? null;
+            if (! $announcementId) {
+                return true;
+            }
+            $announcement = $announcements->get($announcementId);
+            if (! $announcement) {
+                return false;
+            }
+            if ($user->role !== 'admin' && $announcement->department_id
+                && $announcement->department?->code !== $user->department) {
+                return false;
+            }
+
+            return ! in_array($user->role, ['student', 'faculty'], true)
+                || $announcement->course === null
+                || $announcement->course === $user->course;
+        })->values();
     }
 }

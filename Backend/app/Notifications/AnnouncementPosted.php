@@ -32,6 +32,7 @@ class AnnouncementPosted extends Notification
             'message' => Str::limit($this->announcement->body, 140),
             'organizer' => $this->announcement->organizer?->name,
             'course' => $this->announcement->course,
+            'department' => $this->announcement->department?->code,
             'pinned' => $this->announcement->pinned,
         ];
     }

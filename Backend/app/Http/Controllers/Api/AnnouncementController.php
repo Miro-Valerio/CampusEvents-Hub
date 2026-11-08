@@ -22,12 +22,14 @@ class AnnouncementController extends Controller
     {
         $user = $this->resolveUser($request);
 
-        $announcements = Announcement::query()
-            ->with(['organizer:id,name', 'author:id,name'])
+        $query = Announcement::query()
+            ->with(['organizer:id,name', 'author:id,name', 'department:id,code,name'])
             ->with('reactions:id,announcement_id,user_id,emoji')
             ->when($user, fn (Builder $query) => $query->with([
                 'reads' => fn ($reads) => $reads->where('user_id', $user->id),
-            ]))
+            ]));
+        $this->scopeVisible($query, $user, $request);
+        $announcements = $query
             ->when($request->filled('course'), fn (Builder $query) => $query->where(
                 fn (Builder $courses) => $courses
                     ->where('course', $request->query('course'))
@@ -63,6 +65,7 @@ class AnnouncementController extends Controller
     public function markRead(Request $request, Announcement $announcement): JsonResponse
     {
         $user = $request->user();
+        abort_unless($this->isVisible($announcement, $user), 404);
 
         AnnouncementRead::updateOrCreate(
             ['announcement_id' => $announcement->id, 'user_id' => $user->id],
@@ -81,6 +84,7 @@ class AnnouncementController extends Controller
             'emoji' => ['required', 'string', Rule::in(self::EMOJIS)],
         ]);
         $user = $request->user();
+        abort_unless($this->isVisible($announcement, $user), 404);
         $existing = $announcement->reactions()->where('user_id', $user->id)->first();
 
         if ($existing?->emoji === $data['emoji']) {
@@ -121,6 +125,7 @@ class AnnouncementController extends Controller
             'body' => $announcement->body,
             'pinned' => $announcement->pinned,
             'course' => $announcement->course,
+            'department' => $announcement->department?->code,
             'created_at' => $announcement->created_at,
             'organizer' => $announcement->organizer,
             'author' => $announcement->author,
@@ -148,12 +153,44 @@ class AnnouncementController extends Controller
 
     private function countUnread(User $user): int
     {
-        return Announcement::query()
-            ->when($user->course, fn (Builder $query, string $course) => $query->where(
-                fn (Builder $courses) => $courses->where('course', $course)->orWhereNull('course'),
-            ))
-            ->whereDoesntHave('reads', fn (Builder $query) => $query->where('user_id', $user->id))
-            ->count();
+        $query = Announcement::query();
+        $this->scopeVisible($query, $user, request());
+
+        return $query->whereDoesntHave('reads', fn (Builder $reads) => $reads->where('user_id', $user->id))->count();
+    }
+
+    private function scopeVisible(Builder $query, ?User $user, Request $request): void
+    {
+        if (! $user) {
+            $query->whereNull('department_id');
+
+            return;
+        }
+        if ($user->role !== 'admin') {
+            $query->where(fn (Builder $audience) => $audience
+                ->whereNull('department_id')
+                ->orWhereHas('department', fn (Builder $department) => $department->where('code', $user->department)));
+        }
+        if (in_array($user->role, ['student', 'faculty'], true)) {
+            $query->where(fn (Builder $audience) => $audience
+                ->whereNull('course')
+                ->orWhere('course', $user->course));
+        }
+    }
+
+    private function isVisible(Announcement $announcement, User $user): bool
+    {
+        if ($user->role === 'admin') {
+            return true;
+        }
+        if ($announcement->department_id
+            && $announcement->department?->code !== $user->department) {
+            return false;
+        }
+
+        return ! in_array($user->role, ['student', 'faculty'], true)
+            || $announcement->course === null
+            || $announcement->course === $user->course;
     }
 
     private function resolveUser(Request $request): ?User
@@ -167,6 +204,8 @@ class AnnouncementController extends Controller
             return null;
         }
 
-        return PersonalAccessToken::findToken($token)?->tokenable;
+        $user = PersonalAccessToken::findToken($token)?->tokenable;
+
+        return $user?->is_active ? $user : null;
     }
 }

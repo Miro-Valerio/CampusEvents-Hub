@@ -20,6 +20,8 @@ class EventController extends Controller
         $query = Event::with('organizer')
             ->withCount(['rsvps as active_rsvps_count' => fn (Builder $query) => $query->where('status', Rsvp::STATUS_GOING)])
             ->where('is_cancelled', false)
+            ->where('is_published', true)
+            ->whereHas('organizer', fn (Builder $organizer) => $organizer->where('is_active', true))
             ->whereRaw('COALESCE(ends_at, starts_at) >= ?', [now()]);
         if ($search = trim((string) $request->query('search', ''))) {
             $query->where(function ($q) use ($search) {
@@ -52,6 +54,8 @@ class EventController extends Controller
         $query = Event::with(['organizer', 'photos'])
             ->withCount(['rsvps as active_rsvps_count' => fn (Builder $query) => $query->where('status', Rsvp::STATUS_GOING)])
             ->where('is_cancelled', false)
+            ->where('is_published', true)
+            ->whereHas('organizer', fn (Builder $organizer) => $organizer->where('is_active', true))
             ->whereRaw('COALESCE(ends_at, starts_at) < ?', [now()]);
         if ($search = trim((string) $request->query('search', ''))) {
             $query->where(function ($q) use ($search) {
@@ -72,6 +76,8 @@ class EventController extends Controller
         $events = Event::with('organizer:id,name')
             ->withCount(['rsvps as active_rsvps_count' => fn (Builder $query) => $query->where('status', Rsvp::STATUS_GOING)])
             ->where('is_cancelled', false)
+            ->where('is_published', true)
+            ->whereHas('organizer', fn (Builder $organizer) => $organizer->where('is_active', true))
             ->where('starts_at', '<=', $start->copy()->endOfMonth())
             ->whereRaw('COALESCE(ends_at, starts_at) >= ?', [$start])
             ->orderBy('starts_at')
@@ -82,6 +88,7 @@ class EventController extends Controller
 
     public function attendees(Event $event): JsonResponse
     {
+        abort_unless($event->is_published && ! $event->is_cancelled, 404);
         $names = $event->rsvps()
             ->where('status', Rsvp::STATUS_GOING)
             ->with('user:id,name')
@@ -142,6 +149,7 @@ class EventController extends Controller
 
     public function show(Event $event): JsonResponse
     {
+        abort_unless($event->is_published && ! $event->is_cancelled, 404);
         $event->increment('views_count');
 
         return response()->json($event
@@ -153,7 +161,8 @@ class EventController extends Controller
     public function report(Request $request, Event $event): JsonResponse
     {
         $user = $request->user();
-        if ($user->organizer?->is($event->organizer)) {
+        if ($user->organizer?->is($event->organizer)
+            || $user->organizations()->whereKey($event->organizer_id)->exists()) {
             return response()->json(['message' => 'You cannot report your own organization’s event.'], 403);
         }
 

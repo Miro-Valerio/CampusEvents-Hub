@@ -392,7 +392,7 @@ class CampusEventsApiTest extends TestCase
             ->deleteJson("/api/organizer/events/{$eventId}")
             ->assertOk()
             ->assertJsonPath('message', 'Event deleted successfully.');
-        $this->assertDatabaseMissing('events', ['id' => $eventId]);
+        $this->assertSoftDeleted('events', ['id' => $eventId]);
     }
 
     public function test_organizer_event_times_remain_in_philippine_local_time_when_edited(): void
@@ -519,24 +519,28 @@ class CampusEventsApiTest extends TestCase
     public function test_students_can_update_profile_photo_course_and_notification_preferences(): void
     {
         Storage::fake('public');
-        $student = User::factory()->create(['course' => 'BS Information Technology']);
+        $student = User::factory()->create(['course' => 'BS Information Technology', 'department' => 'CCS']);
         $token = $student->createToken('feature-test')->plainTextToken;
         $response = $this->withToken($token)
             ->post('/api/profile', [
                 '_method' => 'PUT',
                 'name' => 'Updated Student',
                 'course' => 'BS Computer Science',
-                'department' => 'COE',
                 'profile_photo' => UploadedFile::fake()->image('profile.png'),
             ], ['Accept' => 'application/json'])
             ->assertOk()
             ->assertJsonPath('name', 'Updated Student')
             ->assertJsonPath('course', 'BS Computer Science')
-            ->assertJsonPath('department', 'COE')
+            ->assertJsonPath('department', 'CCS')
             ->assertJsonPath('profile_photo_url', fn (string $url): bool => str_contains($url, '/storage/user-profiles/'));
 
         $photoPath = substr((string) parse_url($response->json('profile_photo_url'), PHP_URL_PATH), strlen('/storage/'));
         Storage::disk('public')->assertExists($photoPath);
+
+        $this->withToken($token)
+            ->putJson('/api/profile', ['name' => 'Updated Student', 'department' => 'COE'])
+            ->assertUnprocessable()
+            ->assertJsonValidationErrors(['department']);
 
         $this->withToken($token)
             ->getJson('/api/notification-preferences')

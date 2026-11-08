@@ -6,6 +6,7 @@ use Database\Factories\OrganizerFactory;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class Organizer extends Model
@@ -15,7 +16,12 @@ class Organizer extends Model
 
     protected $hidden = ['user_id'];
 
-    protected $fillable = ['name', 'description', 'logo_url'];
+    protected $fillable = ['name', 'description', 'logo_url', 'department_id', 'is_active'];
+
+    protected function casts(): array
+    {
+        return ['is_active' => 'boolean'];
+    }
 
     public function events(): HasMany
     {
@@ -30,5 +36,17 @@ class Organizer extends Model
     public function user(): BelongsTo
     {
         return $this->belongsTo(User::class);
+    }
+
+    public function department(): BelongsTo
+    {
+        return $this->belongsTo(Department::class);
+    }
+
+    public function members(): BelongsToMany
+    {
+        return $this->belongsToMany(User::class)
+            ->withPivot('membership_role')
+            ->withTimestamps();
     }
 }

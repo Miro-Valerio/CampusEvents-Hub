@@ -24,7 +24,9 @@ class AnnouncementPolicy
 
     private function owns(User $user, Announcement $announcement): bool
     {
-        return $user->role === 'organizer'
-            && $user->organizer()->whereKey($announcement->organizer_id)->exists();
+        return in_array($user->role, ['organizer', 'faculty'], true)
+            && $announcement->organizer_id !== null
+            && ($user->organizations()->whereKey($announcement->organizer_id)->exists()
+                || $user->organizer()->whereKey($announcement->organizer_id)->exists());
     }
 }

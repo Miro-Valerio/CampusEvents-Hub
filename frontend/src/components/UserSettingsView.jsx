@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from "react";
 import { Bell, Camera, Save, UserRound } from "lucide-react";
-import { COURSES, DEPARTMENTS } from "../constants";
+import { COURSES } from "../constants";
 
 const defaultPreferences = {
   event_reminders: true,
@@ -15,7 +15,6 @@ function errorMessage(error) {
 export default function UserSettingsView({ http, user, onUserChange, onNotice }) {
   const [name, setName] = useState(user.name || "");
   const [course, setCourse] = useState(user.course || "");
-  const [department, setDepartment] = useState(user.department || "");
   const [photo, setPhoto] = useState(null);
   const [preferences, setPreferences] = useState(defaultPreferences);
   const [loadingPreferences, setLoadingPreferences] = useState(true);
@@ -62,7 +61,6 @@ export default function UserSettingsView({ http, user, onUserChange, onNotice })
     const form = new FormData();
     form.append("name", name);
     form.append("course", user.role === "student" ? course : "");
-    form.append("department", user.role === "student" ? department : "");
     if (photo) form.append("profile_photo", photo);
     try {
       const { data } = await http.post("/profile", form);
@@ -150,13 +148,7 @@ export default function UserSettingsView({ http, user, onUserChange, onNotice })
           </label>
           {user.role === "student" && (
             <>
-              <label>
-                Department
-                <select value={department} onChange={(event) => setDepartment(event.target.value)}>
-                  <option value="">Not set</option>
-                  {DEPARTMENTS.map((item) => <option key={item} value={item}>{item}</option>)}
-                </select>
-              </label>
+              <p className="assigned-department">Assigned department: <b>{user.department || "Not assigned"}</b>. Contact an administrator if this needs correction.</p>
               <label>
                 Course
                 <select value={course} onChange={(event) => setCourse(event.target.value)}>

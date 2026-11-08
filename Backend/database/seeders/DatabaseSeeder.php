@@ -4,6 +4,7 @@ namespace Database\Seeders;
 
 use App\Models\Announcement;
 use App\Models\AnnouncementReaction;
+use App\Models\Department;
 use App\Models\Event;
 use App\Models\Organizer;
 use App\Models\User;
@@ -31,7 +32,7 @@ class DatabaseSeeder extends Seeder
 
         $student = User::updateOrCreate(
             ['email' => 'student@spc.edu.ph'],
-            ['name' => 'SPC Student', 'password' => Hash::make('password'), 'course' => 'BS Information Technology'],
+            ['name' => 'SPC Student', 'password' => Hash::make('password'), 'course' => 'BS Information Technology', 'department' => 'CCS'],
         );
         $student->role = 'student';
         $student->save();
@@ -50,52 +51,65 @@ class DatabaseSeeder extends Seeder
                 'Campus events and student activities organized by the College of Computer Studies.',
                 'ccs.organizer@spc.edu.ph',
                 'CCS Organizer',
+                'CCS',
             ],
             [
                 'College of Business Administration (CBA)',
                 'Campus events and student activities organized by the College of Business Administration.',
                 'cba.organizer@spc.edu.ph',
                 'CBA Organizer',
+                'CBA',
             ],
             [
                 'College of Criminology (CCrim)',
                 'Campus events and student activities organized by the College of Criminology.',
                 'ccrim.organizer@spc.edu.ph',
                 'CCrim Organizer',
+                'CCJ',
             ],
             [
                 'College of Engineering (COE)',
                 'Campus events and student activities organized by the College of Engineering.',
                 'coe.organizer@spc.edu.ph',
                 'COE Organizer',
+                'COE',
             ],
             [
                 'College of Education (CED)',
                 'Campus events and student activities organized by the College of Education.',
                 'ced.organizer@spc.edu.ph',
                 'CED Organizer',
+                'COED',
             ],
         ];
         $organizerAccounts = [
-            [$studentAffairs, 'organizer@spc.edu.ph', 'SPC Organizer'],
-            [$itOrganization, 'it.organizer@spc.edu.ph', 'IT Organizer'],
+            [$studentAffairs, 'organizer@spc.edu.ph', 'SPC Organizer', null],
+            [$itOrganization, 'it.organizer@spc.edu.ph', 'IT Organizer', 'CCS'],
         ];
-        foreach ($collegeOrganizers as [$name, $description, $email, $accountName]) {
+        foreach ($collegeOrganizers as [$name, $description, $email, $accountName, $departmentCode]) {
             $organizer = Organizer::updateOrCreate(
                 ['name' => $name],
                 ['description' => $description],
             );
-            $organizerAccounts[] = [$organizer, $email, $accountName];
+            $organizerAccounts[] = [$organizer, $email, $accountName, $departmentCode];
         }
-        foreach ($organizerAccounts as [$organizer, $email, $name]) {
+        foreach ($organizerAccounts as [$organizer, $email, $name, $departmentCode]) {
             $account = User::updateOrCreate(
                 ['email' => $email],
-                ['name' => $name, 'password' => Hash::make('password')],
+                [
+                    'name' => $name,
+                    'password' => Hash::make('password'),
+                    'department' => $departmentCode,
+                ],
             );
             $account->role = 'organizer';
             $account->save();
+            $organizer->department_id = $departmentCode
+                ? Department::where('code', $departmentCode)->value('id')
+                : null;
             $organizer->user()->associate($account);
             $organizer->save();
+            $organizer->members()->syncWithoutDetaching([$account->id => ['membership_role' => 'owner']]);
         }
         $athletics = Organizer::updateOrCreate(
             ['name' => 'SPC Athletics Council'],

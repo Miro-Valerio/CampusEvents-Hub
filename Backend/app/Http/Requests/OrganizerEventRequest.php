@@ -25,6 +25,7 @@ class OrganizerEventRequest extends FormRequest
             'category' => ['required', 'string', 'max:100'],
             'rules' => ['nullable', 'string', 'max:10000'],
             'capacity' => ['required', 'integer', 'min:1'],
+            'organizer_id' => ['nullable', 'integer', 'exists:organizers,id'],
         ];
     }
 

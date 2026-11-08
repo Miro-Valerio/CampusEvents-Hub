@@ -12,4 +12,4 @@ export const COURSES = [
   "BS Mechanical Engineering",
 ];
 
-export const DEPARTMENTS = ["CCS", "BSCRIM", "COE", "CED", "CAD", "CBA"];
+export const DEPARTMENTS = ["COE", "CBA", "COED", "CCJ", "CCS"];
