@@ -9,7 +9,7 @@
   overflow-y: auto;
   overscroll-behavior: contain;
   background: rgba(16, 16, 24, 0.48);
-  z-index: 30;
+  z-index: 1100;
   padding: 18px;
 }
 
