@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Controllers\Api\AnnouncementController;
+use App\Http\Controllers\Api\AdminController;
 use App\Http\Controllers\Api\AuthController;
 use App\Http\Controllers\Api\EventController;
 use App\Http\Controllers\Api\NotificationController;
@@ -9,6 +10,7 @@ use App\Http\Controllers\Api\OrganizerController;
 use App\Http\Controllers\Api\OrganizerDashboardController;
 use App\Http\Controllers\Api\UserSettingsController;
 use App\Http\Middleware\EnsureOrganizer;
+use App\Http\Middleware\EnsureAdmin;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
 
@@ -37,6 +39,7 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::get('/notification-preferences', [UserSettingsController::class, 'preferences']);
     Route::put('/notification-preferences', [UserSettingsController::class, 'updatePreferences']);
     Route::match(['put', 'post'], '/profile', [UserSettingsController::class, 'updateProfile']);
+    Route::put('/profile/password', [UserSettingsController::class, 'changePassword']);
     Route::get('/my-rsvps', [EventController::class, 'myRsvps']);
     Route::get('/my-checkins', [EventController::class, 'myCheckIns']);
     Route::get('/my-saves', [EventController::class, 'mySaves']);
@@ -47,6 +50,14 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::delete('/events/{event}/rsvp', [EventController::class, 'cancelRsvp']);
     Route::post('/events/{event}/save', [EventController::class, 'toggleSave']);
     Route::post('/events/{event}/reports', [EventController::class, 'report'])->middleware('throttle:5,60');
+
+    Route::prefix('admin')->middleware(EnsureAdmin::class)->group(function () {
+        Route::get('/users', [AdminController::class, 'users']);
+        Route::post('/organizers', [AdminController::class, 'createOrganizer']);
+        Route::put('/users/{user}/promote', [AdminController::class, 'promoteStudent']);
+        Route::get('/reports', [AdminController::class, 'reports']);
+        Route::put('/reports/{report}', [AdminController::class, 'reviewReport']);
+    });
 
     Route::prefix('organizer')->middleware(EnsureOrganizer::class)->group(function () {
         Route::get('/announcements', [OrganizerAnnouncementController::class, 'index']);

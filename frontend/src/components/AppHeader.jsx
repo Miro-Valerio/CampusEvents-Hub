@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from "react";
-import { CalendarDays, LogIn, LogOut, Loader2, Menu, Settings, X } from "lucide-react";
+import { CalendarDays, LogIn, LogOut, Loader2, Menu, Settings, ShieldCheck, X } from "lucide-react";
 import NotificationBell from "./NotificationBell";
 
 export default function AppHeader({
@@ -88,6 +88,7 @@ export default function AppHeader({
         {link("organizers", "Organizers")}
         {link("calendar", "Calendar")}
         {link("archive", "Archive")}
+        {user?.role === "admin" && link("admin-dashboard", "Admin Dashboard", true)}
       </nav>
       <div className="account" key={user ? `user-${user.id}` : "guest"}>
         {user ? (
@@ -140,6 +141,19 @@ export default function AppHeader({
                   </>
                 )}
                 {user.role === "organizer" && menuLink("dashboard", "Organizer Dashboard")}
+                {user.role === "admin" && (
+                  <a
+                    className={view === "admin-dashboard" ? "active" : ""}
+                    href="#admin-dashboard"
+                    onClick={(event) => {
+                      event.preventDefault();
+                      setMenuOpen(false);
+                      onNavigate("admin-dashboard", true);
+                    }}
+                  >
+                    <ShieldCheck size={16} /> Admin Dashboard
+                  </a>
+                )}
                 <a
                   className={view === "settings" ? "active" : ""}
                   href="#settings"

@@ -5,8 +5,10 @@ namespace App\Http\Controllers\Api;
 use App\Http\Controllers\Controller;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Validation\Rule;
+use Illuminate\Validation\ValidationException;
 
 class UserSettingsController extends Controller
 {
@@ -92,6 +94,23 @@ class UserSettingsController extends Controller
         }
 
         return response()->json($user->fresh()->load('organizer'));
+    }
+
+    public function changePassword(Request $request): JsonResponse
+    {
+        $data = $request->validate([
+            'current_password' => ['required', 'string'],
+            'new_password' => ['required', 'string', 'min:12', 'confirmed'],
+        ]);
+        if (! Hash::check($data['current_password'], $request->user()->password)) {
+            throw ValidationException::withMessages([
+                'current_password' => ['The current password is incorrect.'],
+            ]);
+        }
+
+        $request->user()->forceFill(['password' => $data['new_password']])->save();
+
+        return response()->json(['message' => 'Password changed successfully.']);
     }
 
     private function deleteStoredPhoto(?string $url): void

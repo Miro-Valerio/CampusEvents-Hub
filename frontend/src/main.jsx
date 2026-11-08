@@ -10,6 +10,7 @@ import {
   X,
 } from "lucide-react";
 import AppHeader from "./components/AppHeader";
+import AdminDashboard from "./components/AdminDashboard";
 import AnnouncementsView from "./components/AnnouncementsView";
 import AuthModal from "./components/AuthModal";
 import ArchiveView from "./components/ArchiveView";
@@ -339,6 +340,7 @@ function App() {
         setUser(data);
         setAuthChecking(false);
         if (data?.role === "organizer") setView("dashboard");
+        if (data?.role === "admin") setView("admin-dashboard");
         return Promise.all([loadMyLists(), loadNotifications(), loadAnnouncements()]);
       })
       .catch((err) => {
@@ -360,6 +362,9 @@ function App() {
     if (target === "dashboard" && user?.role !== "organizer") {
       target = "discover";
     }
+    if (target === "admin-dashboard" && user?.role !== "admin") {
+      target = "discover";
+    }
     if (needsLogin && !isLoggedIn()) return requireLogin("Log in to see this page.");
     clearError();
     setSelected(null);
@@ -375,6 +380,9 @@ function App() {
   };
   useEffect(() => {
     if (view === "dashboard" && user && user.role !== "organizer") {
+      setView("discover");
+    }
+    if (view === "admin-dashboard" && user && user.role !== "admin") {
       setView("discover");
     }
   }, [view, user]);
@@ -433,7 +441,9 @@ function App() {
       cacheUser(data.token, data.user);
       setUser(data.user);
       setAuthChecking(false);
-      setView(data.user?.role === "organizer" ? "dashboard" : "discover");
+      setView(data.user?.role === "admin"
+        ? "admin-dashboard"
+        : data.user?.role === "organizer" ? "dashboard" : "discover");
       setSelected(null);
       setAuthOpen(false);
       setNotice(`Welcome${data.user?.name ? `, ${data.user.name}` : ""}!`);
@@ -836,6 +846,9 @@ function App() {
             onResetFilters={resetFilters}
             onPage={loadEvents}
           />
+        )}
+        {view === "admin-dashboard" && user?.role === "admin" && (
+          <AdminDashboard http={http} onNotice={setNotice} />
         )}
         {view === "announcements" && (
           <AnnouncementsView

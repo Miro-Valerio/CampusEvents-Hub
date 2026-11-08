@@ -7,8 +7,10 @@ use App\Models\EventReport;
 use App\Models\Organizer;
 use App\Models\Rsvp;
 use App\Models\User;
+use Database\Seeders\AdminAccountSeeder;
 use Illuminate\Foundation\Testing\LazilyRefreshDatabase;
 use Illuminate\Http\UploadedFile;
+use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Storage;
 use Tests\TestCase;
 
@@ -177,6 +179,147 @@ class CampusEventsApiTest extends TestCase
         $this->withToken($token)
             ->getJson('/api/organizer/stats')
             ->assertForbidden();
+    }
+
+    public function test_admin_routes_are_restricted_to_admin_accounts(): void
+    {
+        $student = User::factory()->create();
+        $token = $student->createToken('feature-test')->plainTextToken;
+
+        $this->withToken($token)
+            ->getJson('/api/admin/users?role=student')
+            ->assertForbidden();
+    }
+
+    public function test_admin_seeder_preserves_an_existing_password(): void
+    {
+        config([
+            'admin.bootstrap_email' => 'existing.admin@example.com',
+            'admin.bootstrap_password' => 'temporary-bootstrap-password',
+        ]);
+        $admin = User::factory()->create([
+            'email' => 'existing.admin@example.com',
+            'password' => 'current-admin-password',
+        ]);
+        $admin->forceFill(['role' => 'admin'])->save();
+
+        app(AdminAccountSeeder::class)->run();
+
+        $this->assertTrue(Hash::check(
+            'current-admin-password',
+            $admin->fresh()->password,
+        ));
+    }
+
+    public function test_admin_can_create_and_promote_department_organizers(): void
+    {
+        $admin = User::factory()->create();
+        $admin->forceFill(['role' => 'admin'])->save();
+        $token = $admin->createToken('feature-test')->plainTextToken;
+        $student = User::factory()->create(['department' => 'CCS']);
+
+        $this->withToken($token)
+            ->postJson('/api/admin/organizers', [
+                'name' => 'CCS Faculty',
+                'email' => 'ccs.faculty@example.com',
+                'password' => 'temporary-password-12',
+                'department' => 'CCS',
+                'organization_name' => 'CCS Department',
+                'description' => 'CCS department events.',
+            ])
+            ->assertCreated()
+            ->assertJsonPath('data.role', 'organizer')
+            ->assertJsonPath('data.organizer.name', 'CCS Department');
+
+        $this->assertDatabaseHas('users', [
+            'email' => 'ccs.faculty@example.com',
+            'role' => 'organizer',
+            'department' => 'CCS',
+        ]);
+
+        $this->withToken($token)
+            ->putJson("/api/admin/users/{$student->id}/promote", [
+                'department' => 'CCS',
+                'organization_name' => 'CCS Student Officers',
+                'description' => 'CCS student officers.',
+            ])
+            ->assertOk()
+            ->assertJsonPath('data.role', 'organizer')
+            ->assertJsonPath('data.organizer.name', 'CCS Student Officers');
+
+        $this->assertDatabaseHas('users', [
+            'id' => $student->id,
+            'role' => 'organizer',
+            'department' => 'CCS',
+        ]);
+    }
+
+    public function test_admin_can_review_event_reports(): void
+    {
+        $admin = User::factory()->create();
+        $admin->forceFill(['role' => 'admin'])->save();
+        $token = $admin->createToken('feature-test')->plainTextToken;
+        $student = User::factory()->create();
+        [, $organizer] = $this->createOrganizer();
+        $event = $organizer->events()->create($this->eventData());
+        $report = EventReport::create([
+            'event_id' => $event->id,
+            'user_id' => $student->id,
+            'reason' => 'incorrect_information',
+            'details' => 'The venue is incorrect.',
+            'status' => 'pending',
+        ]);
+
+        $this->withToken($token)
+            ->getJson('/api/admin/reports')
+            ->assertOk()
+            ->assertJsonPath('data.0.id', $report->id)
+            ->assertJsonPath('data.0.event.title', $event->title);
+
+        $this->withToken($token)
+            ->putJson("/api/admin/reports/{$report->id}", [
+                'status' => 'reviewed',
+                'review_notes' => 'Confirmed and corrected.',
+            ])
+            ->assertOk()
+            ->assertJsonPath('data.status', 'reviewed')
+            ->assertJsonPath('data.reviewer.id', $admin->id);
+
+        $this->assertDatabaseHas('event_reports', [
+            'id' => $report->id,
+            'status' => 'reviewed',
+            'reviewed_by' => $admin->id,
+            'review_notes' => 'Confirmed and corrected.',
+        ]);
+    }
+
+    public function test_users_can_change_password_with_their_current_password(): void
+    {
+        $user = User::factory()->create(['password' => 'original-password']);
+        $token = $user->createToken('feature-test')->plainTextToken;
+
+        $this->withToken($token)
+            ->putJson('/api/profile/password', [
+                'current_password' => 'incorrect-password',
+                'new_password' => 'a-new-secure-password',
+                'new_password_confirmation' => 'a-new-secure-password',
+            ])
+            ->assertUnprocessable()
+            ->assertJsonValidationErrors(['current_password']);
+
+        $this->withToken($token)
+            ->putJson('/api/profile/password', [
+                'current_password' => 'original-password',
+                'new_password' => 'a-new-secure-password',
+                'new_password_confirmation' => 'a-new-secure-password',
+            ])
+            ->assertOk()
+            ->assertJsonPath('message', 'Password changed successfully.');
+
+        $this->assertTrue(Hash::check(
+            'a-new-secure-password',
+            $user->fresh()->password,
+        ));
     }
 
     public function test_organizer_cannot_edit_another_organizers_event(): void

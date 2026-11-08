@@ -22,6 +22,11 @@ export default function UserSettingsView({ http, user, onUserChange, onNotice })
   const [busy, setBusy] = useState("");
   const [error, setError] = useState("");
   const [photoPreview, setPhotoPreview] = useState(user.profile_photo_url || "");
+  const [passwordForm, setPasswordForm] = useState({
+    current_password: "",
+    new_password: "",
+    new_password_confirmation: "",
+  });
 
   useEffect(() => {
     if (!photo) {
@@ -81,6 +86,28 @@ export default function UserSettingsView({ http, user, onUserChange, onNotice })
       onNotice("Notification preferences saved.");
     } catch (requestError) {
       setError(errorMessage(requestError));
+    } finally {
+      setBusy("");
+    }
+  };
+
+  const changePassword = async (event) => {
+    event.preventDefault();
+    setBusy("password");
+    setError("");
+    try {
+      const { data } = await http.put("/profile/password", passwordForm);
+      setPasswordForm({
+        current_password: "",
+        new_password: "",
+        new_password_confirmation: "",
+      });
+      onNotice(data.message || "Password changed successfully.");
+    } catch (requestError) {
+      setError(
+        Object.values(requestError.response?.data?.errors || {}).flat()[0] ||
+          errorMessage(requestError),
+      );
     } finally {
       setBusy("");
     }
@@ -166,6 +193,48 @@ export default function UserSettingsView({ http, user, onUserChange, onNotice })
           ))}
           <button className="btn btn-primary" type="submit" disabled={busy === "preferences" || loadingPreferences}>
             <Save size={15} /> {busy === "preferences" ? "Saving..." : "Save notification settings"}
+          </button>
+        </form>
+
+        <form className="settings-card" onSubmit={changePassword}>
+          <div className="settings-card-heading">
+            <UserRound size={19} />
+            <div><h3>Change password</h3><p>Use a unique password with at least 12 characters.</p></div>
+          </div>
+          <label>
+            Current password
+            <input
+              required
+              type="password"
+              autoComplete="current-password"
+              value={passwordForm.current_password}
+              onChange={(event) => setPasswordForm((current) => ({ ...current, current_password: event.target.value }))}
+            />
+          </label>
+          <label>
+            New password
+            <input
+              required
+              type="password"
+              minLength={12}
+              autoComplete="new-password"
+              value={passwordForm.new_password}
+              onChange={(event) => setPasswordForm((current) => ({ ...current, new_password: event.target.value }))}
+            />
+          </label>
+          <label>
+            Confirm new password
+            <input
+              required
+              type="password"
+              minLength={12}
+              autoComplete="new-password"
+              value={passwordForm.new_password_confirmation}
+              onChange={(event) => setPasswordForm((current) => ({ ...current, new_password_confirmation: event.target.value }))}
+            />
+          </label>
+          <button className="btn btn-primary" type="submit" disabled={busy === "password"}>
+            <Save size={15} /> {busy === "password" ? "Changing..." : "Change password"}
           </button>
         </form>
       </div>
