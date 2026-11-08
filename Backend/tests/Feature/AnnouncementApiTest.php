@@ -128,6 +128,20 @@ class AnnouncementApiTest extends TestCase
         $this->assertSame(0, $this->notificationCount($organizerUser));
     }
 
+    public function test_students_can_turn_off_announcement_notifications(): void
+    {
+        [$organizerUser] = $this->createOrganizer();
+        $organizerToken = $organizerUser->createToken('feature-test')->plainTextToken;
+        $student = User::factory()->create();
+        $student->forceFill(['notification_preferences' => ['announcements' => false]])->save();
+
+        $this->useToken($organizerToken)
+            ->postJson('/api/organizer/announcements', $this->announcementData(['title' => 'Muted announcement']))
+            ->assertCreated();
+
+        $this->assertSame(0, $this->notificationCount($student));
+    }
+
     public function test_students_can_read_notifications_and_mark_them_as_read(): void
     {
         [$organizerUser] = $this->createOrganizer();

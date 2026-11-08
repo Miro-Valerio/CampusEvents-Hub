@@ -2,12 +2,14 @@ import React, { useEffect, useState } from "react";
 import {
   CalendarDays,
   Download,
+  Eye,
   ImagePlus,
   Megaphone,
   Pencil,
   Pin,
   PinOff,
   Plus,
+  Printer,
   RefreshCw,
   Save,
   Trash2,
@@ -15,6 +17,7 @@ import {
   X,
 } from "lucide-react";
 import { COURSES } from "../constants";
+import { printRsvpSheet } from "../utils/print";
 
 const emptyEvent = () => {
   const start = new Date(Date.now() + 24 * 60 * 60 * 1000);
@@ -191,17 +194,17 @@ export default function OrganizerDashboard({
     }
   };
 
-  const deleteEvent = async (event) => {
-    if (!window.confirm(`Delete "${event.title}" and its related RSVPs?`)) return;
-    setBusy(`delete-${event.id}`);
+  const cancelEvent = async (event) => {
+    if (!window.confirm(`Cancel "${event.title}" and notify attendees?`)) return;
+    setBusy(`cancel-${event.id}`);
     setDashboardError(null);
     setValidationMessages([]);
     try {
-      await http.delete(`/organizer/events/${event.id}`);
-      onNotice("Event deleted.");
+      const { data } = await http.post(`/organizer/events/${event.id}/cancel`);
+      onNotice(data.message);
       await loadDashboard();
     } catch (error) {
-      reportError(error, () => deleteEvent(event));
+      reportError(error, () => cancelEvent(event));
     } finally {
       setBusy("");
     }
@@ -381,6 +384,12 @@ export default function OrganizerDashboard({
     window.setTimeout(() => URL.revokeObjectURL(url), 0);
   };
 
+  const printAttendees = (eventId, eventTitle) => {
+    if (!printRsvpSheet(eventTitle, attendees[eventId] || [])) {
+      onNotice("Allow pop-ups in your browser to print the RSVP sheet.");
+    }
+  };
+
   return (
     <section className="organizer-dashboard">
       {dashboardError && (
@@ -421,6 +430,7 @@ export default function OrganizerDashboard({
           ["Upcoming", stats?.upcoming_events, <CalendarDays size={19} />],
           ["Going RSVPs", stats?.total_rsvps, <Users size={19} />],
           ["Seats filled", stats?.seats_filled, <Users size={19} />],
+          ["Event views", stats?.total_views, <Eye size={19} />],
         ].map(([label, value, icon]) => (
           <article className="dashboard-stat" key={label}>
             <span className="dashboard-stat-icon">{icon}</span>
@@ -774,12 +784,12 @@ export default function OrganizerDashboard({
                       </div>
                     )}
                     <div className="dashboard-event-details">
-                      <span className={`dashboard-event-status ${isPast ? "past" : ""}`}>
-                        {isPast ? "Past event" : "Upcoming"}
+                      <span className={`dashboard-event-status ${event.is_cancelled ? "cancelled" : isPast ? "past" : ""}`}>
+                        {event.is_cancelled ? "Cancelled" : isPast ? "Past event" : "Upcoming"}
                       </span>
                       <h3>{event.title}</h3>
                       <p>{event.venue} · {new Date(event.starts_at).toLocaleString()}</p>
-                      <small>{going} going RSVP{going === 1 ? "" : "s"} / {event.capacity} seats</small>
+                      <small>{going} going RSVP{going === 1 ? "" : "s"} / {event.capacity} seats · {event.views_count || 0} views</small>
                     </div>
                   </div>
                   <div className="dashboard-event-actions">
@@ -796,10 +806,10 @@ export default function OrganizerDashboard({
                     </button>
                     <button
                       className="btn btn-outline dashboard-delete"
-                      onClick={() => deleteEvent(event)}
-                      disabled={busy === `delete-${event.id}`}
+                      onClick={() => cancelEvent(event)}
+                      disabled={event.is_cancelled || busy === `cancel-${event.id}`}
                     >
-                      <Trash2 size={15} /> Delete
+                      <X size={15} /> {event.is_cancelled ? "Cancelled" : "Cancel event"}
                     </button>
                     {isPast && (
                       <button
@@ -852,6 +862,12 @@ export default function OrganizerDashboard({
                             >
                               <Download size={15} /> Download CSV
                             </button>
+                            <button
+                              className="btn btn-outline"
+                              onClick={() => printAttendees(event.id, event.title)}
+                            >
+                              <Printer size={15} /> Print RSVP sheet
+                            </button>
                           </div>
                           <div className="dashboard-attendee-list">
                             {attendees[event.id].map((attendee, index) => (
@@ -877,6 +893,12 @@ export default function OrganizerDashboard({
                             onClick={() => downloadAttendees(event.id, event.title)}
                           >
                             <Download size={15} /> Download CSV
+                          </button>
+                          <button
+                            className="btn btn-outline dashboard-csv-empty"
+                            onClick={() => printAttendees(event.id, event.title)}
+                          >
+                            <Printer size={15} /> Print RSVP sheet
                           </button>
                         </>
                       )}

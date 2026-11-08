@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
 use App\Models\Event;
+use App\Models\EventReport;
 use App\Models\Rsvp;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Relations\HasMany;
@@ -18,6 +19,7 @@ class EventController extends Controller
     {
         $query = Event::with('organizer')
             ->withCount(['rsvps as active_rsvps_count' => fn (Builder $query) => $query->where('status', Rsvp::STATUS_GOING)])
+            ->where('is_cancelled', false)
             ->whereRaw('COALESCE(ends_at, starts_at) >= ?', [now()]);
         if ($search = trim((string) $request->query('search', ''))) {
             $query->where(function ($q) use ($search) {
@@ -49,6 +51,7 @@ class EventController extends Controller
     {
         $query = Event::with(['organizer', 'photos'])
             ->withCount(['rsvps as active_rsvps_count' => fn (Builder $query) => $query->where('status', Rsvp::STATUS_GOING)])
+            ->where('is_cancelled', false)
             ->whereRaw('COALESCE(ends_at, starts_at) < ?', [now()]);
         if ($search = trim((string) $request->query('search', ''))) {
             $query->where(function ($q) use ($search) {
@@ -68,6 +71,7 @@ class EventController extends Controller
 
         $events = Event::with('organizer:id,name')
             ->withCount(['rsvps as active_rsvps_count' => fn (Builder $query) => $query->where('status', Rsvp::STATUS_GOING)])
+            ->where('is_cancelled', false)
             ->where('starts_at', '<=', $start->copy()->endOfMonth())
             ->whereRaw('COALESCE(ends_at, starts_at) >= ?', [$start])
             ->orderBy('starts_at')
@@ -138,9 +142,41 @@ class EventController extends Controller
 
     public function show(Event $event): JsonResponse
     {
+        $event->increment('views_count');
+
         return response()->json($event
+            ->refresh()
             ->load(['organizer', 'photos'])
             ->loadCount(['rsvps as active_rsvps_count' => fn (Builder $query) => $query->where('status', Rsvp::STATUS_GOING)]));
+    }
+
+    public function report(Request $request, Event $event): JsonResponse
+    {
+        $user = $request->user();
+        if ($user->organizer?->is($event->organizer)) {
+            return response()->json(['message' => 'You cannot report your own organization’s event.'], 403);
+        }
+
+        $data = $request->validate([
+            'reason' => ['required', 'string', 'in:incorrect_information,inappropriate,duplicate,other'],
+            'details' => ['nullable', 'string', 'max:1000'],
+        ]);
+
+        if (EventReport::query()->where('event_id', $event->id)->where('user_id', $user->id)->exists()) {
+            return response()->json(['message' => 'You have already reported this event.'], 409);
+        }
+
+        $report = EventReport::create([
+            'event_id' => $event->id,
+            'user_id' => $user->id,
+            'reason' => $data['reason'],
+            'details' => $data['details'] ?? null,
+        ]);
+
+        return response()->json([
+            'message' => 'Thanks. Your report was submitted for staff review.',
+            'report_id' => $report->id,
+        ], 201);
     }
 
     public function toggleSave(Request $request, Event $event): JsonResponse
@@ -159,6 +195,10 @@ class EventController extends Controller
 
     public function storeRsvp(Request $request, Event $event): JsonResponse
     {
+        if ($event->is_cancelled) {
+            return response()->json(['message' => 'This event has been cancelled.'], 422);
+        }
+
         if (($event->ends_at ?? $event->starts_at)->isPast()) {
             return response()->json(['message' => 'This event has already ended.'], 422);
         }

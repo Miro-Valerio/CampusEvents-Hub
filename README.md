@@ -29,6 +29,8 @@ Demo login: `student@spc.edu.ph` / `password`
 
 Event reminders appear in the in-app notification panel about one hour before an event for students with an active RSVP. Keep the app open and signed in to receive them. Students who bookmarked an event are notified in-app if its schedule changes. Organizers can check in attendees from their dashboard using the code shown on the student's **My RSVPs** page; students can view completed check-ins under **Check-in history**.
 
+Organizer tools include event poster uploads, editing, cancellation notices, RSVP exports, printable attendance sheets, and RSVP/view counts. Students can report event listings for staff review and manage their profile and notification preferences under **Profile & settings**. Event details and RSVP lists have print views.
+
 ## Run the frontend
 ```
 cd frontend

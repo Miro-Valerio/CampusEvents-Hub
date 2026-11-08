@@ -68,6 +68,11 @@ export default function AnnouncementsView({
           </span>
         </div>
       )}
+      {user && !loading && unreadCount === 0 && (
+        <div className="announcement-caught-up" role="status">
+          You are all caught up. There are no unread announcements.
+        </div>
+      )}
 
       <div className="filter-panel">
         <label className="search-box">

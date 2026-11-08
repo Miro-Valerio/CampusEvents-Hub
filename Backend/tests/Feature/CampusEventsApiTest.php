@@ -3,6 +3,7 @@
 namespace Tests\Feature;
 
 use App\Models\Event;
+use App\Models\EventReport;
 use App\Models\Organizer;
 use App\Models\Rsvp;
 use App\Models\User;
@@ -274,6 +275,129 @@ class CampusEventsApiTest extends TestCase
             ->assertOk()
             ->assertJsonPath('starts_at', '2030-01-14T16:50:00.000000Z')
             ->assertJsonPath('ends_at', '2030-01-14T17:00:00.000000Z');
+    }
+
+    public function test_event_detail_views_are_counted_for_the_organizer_dashboard(): void
+    {
+        [$user, $organizer] = $this->createOrganizer();
+        $token = $user->createToken('feature-test')->plainTextToken;
+        $event = $organizer->events()->create($this->eventData());
+
+        $this->getJson("/api/events/{$event->id}")->assertOk()->assertJsonPath('views_count', 1);
+        $this->getJson("/api/events/{$event->id}")->assertOk()->assertJsonPath('views_count', 2);
+        $this->withToken($token)
+            ->getJson('/api/organizer/stats')
+            ->assertOk()
+            ->assertJsonPath('total_views', 2);
+    }
+
+    public function test_students_can_report_an_event_once_and_organizers_cannot_report_their_own(): void
+    {
+        [$owner, $organizer] = $this->createOrganizer();
+        $ownerToken = $owner->createToken('feature-test')->plainTextToken;
+        $event = $organizer->events()->create($this->eventData());
+        $student = User::factory()->create();
+        $studentToken = $student->createToken('feature-test')->plainTextToken;
+
+        $this->withToken($studentToken)
+            ->postJson("/api/events/{$event->id}/reports", [
+                'reason' => 'incorrect_information',
+                'details' => 'The venue appears to be incorrect.',
+            ])
+            ->assertCreated()
+            ->assertJsonPath('message', 'Thanks. Your report was submitted for staff review.');
+        $this->assertDatabaseHas('event_reports', [
+            'event_id' => $event->id,
+            'user_id' => $student->id,
+            'reason' => 'incorrect_information',
+            'status' => 'pending',
+        ]);
+
+        $this->withToken($studentToken)
+            ->postJson("/api/events/{$event->id}/reports", ['reason' => 'duplicate'])
+            ->assertStatus(409);
+
+        $this->app['auth']->forgetGuards();
+        $this->withToken($ownerToken)
+            ->postJson("/api/events/{$event->id}/reports", ['reason' => 'other'])
+            ->assertForbidden();
+
+        $this->assertSame(1, EventReport::query()->count());
+    }
+
+    public function test_organizer_cancellation_preserves_event_notifies_attendees_and_removes_it_from_public_lists(): void
+    {
+        [$owner, $organizer] = $this->createOrganizer();
+        $ownerToken = $owner->createToken('feature-test')->plainTextToken;
+        $event = $organizer->events()->create($this->eventData());
+        $attendee = User::factory()->create();
+        $attendeeToken = $attendee->createToken('feature-test')->plainTextToken;
+        Rsvp::create([
+            'user_id' => $attendee->id,
+            'event_id' => $event->id,
+            'status' => Rsvp::STATUS_GOING,
+            'seat_number' => 1,
+        ]);
+
+        $this->withToken($ownerToken)
+            ->postJson("/api/organizer/events/{$event->id}/cancel")
+            ->assertOk()
+            ->assertJsonPath('is_cancelled', true);
+
+        $this->assertDatabaseHas('events', ['id' => $event->id, 'is_cancelled' => true]);
+        $this->assertDatabaseHas('rsvps', [
+            'event_id' => $event->id,
+            'user_id' => $attendee->id,
+            'status' => Rsvp::STATUS_CANCELLED,
+            'seat_number' => null,
+        ]);
+        $this->assertDatabaseHas('notifications', [
+            'notifiable_id' => $attendee->id,
+            'data->kind' => 'event_cancelled',
+        ]);
+        $this->getJson('/api/events')->assertOk()->assertJsonPath('total', 0);
+        $this->app['auth']->forgetGuards();
+        $this->withToken($attendeeToken)
+            ->getJson('/api/notifications')
+            ->assertOk()
+            ->assertJsonPath('data.0.data.kind', 'event_cancelled');
+    }
+
+    public function test_students_can_update_profile_photo_course_and_notification_preferences(): void
+    {
+        Storage::fake('public');
+        $student = User::factory()->create(['course' => 'BS Information Technology']);
+        $token = $student->createToken('feature-test')->plainTextToken;
+        $response = $this->withToken($token)
+            ->post('/api/profile', [
+                '_method' => 'PUT',
+                'name' => 'Updated Student',
+                'course' => 'BS Computer Science',
+                'profile_photo' => UploadedFile::fake()->image('profile.png'),
+            ], ['Accept' => 'application/json'])
+            ->assertOk()
+            ->assertJsonPath('name', 'Updated Student')
+            ->assertJsonPath('course', 'BS Computer Science')
+            ->assertJsonPath('profile_photo_url', fn (string $url): bool => str_contains($url, '/storage/user-profiles/'));
+
+        $photoPath = substr((string) parse_url($response->json('profile_photo_url'), PHP_URL_PATH), strlen('/storage/'));
+        Storage::disk('public')->assertExists($photoPath);
+
+        $this->withToken($token)
+            ->getJson('/api/notification-preferences')
+            ->assertOk()
+            ->assertJsonPath('preferences.event_reminders', true)
+            ->assertJsonPath('preferences.announcements', true);
+
+        $this->withToken($token)
+            ->putJson('/api/notification-preferences', [
+                'event_reminders' => false,
+                'event_changes' => true,
+                'announcements' => false,
+            ])
+            ->assertOk()
+            ->assertJsonPath('preferences.event_reminders', false)
+            ->assertJsonPath('preferences.announcements', false);
     }
 
     public function test_organizer_can_upload_and_replace_an_event_poster(): void

@@ -80,7 +80,10 @@ class OrganizerAnnouncementController extends Controller
             ->whereKeyNot($author->id)
             ->when($announcement->course, fn (Builder $query) => $query->where('course', $announcement->course))
             ->chunkById(100, function ($users) use ($announcement): void {
-                Notification::send($users, new AnnouncementPosted($announcement));
+                Notification::send(
+                    $users->filter(fn (User $user): bool => $user->wantsNotification('announcements')),
+                    new AnnouncementPosted($announcement),
+                );
             });
     }
 }

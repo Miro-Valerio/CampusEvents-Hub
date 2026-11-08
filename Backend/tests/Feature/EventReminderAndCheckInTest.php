@@ -190,6 +190,33 @@ class EventReminderAndCheckInTest extends TestCase
         );
     }
 
+    public function test_disabled_event_change_preference_suppresses_schedule_notifications(): void
+    {
+        [$organizerUser, $organizer] = $this->createOrganizer();
+        $organizerToken = $organizerUser->createToken('test')->plainTextToken;
+        $savedUser = User::factory()->create();
+        $savedUser->forceFill(['notification_preferences' => ['event_changes' => false]])->save();
+        $event = $this->createEvent($organizer);
+        $savedUser->savedEvents()->attach($event);
+
+        $this->useToken($organizerToken)
+            ->putJson("/api/organizer/events/{$event->id}", [
+                'title' => $event->title,
+                'description' => $event->description,
+                'venue' => $event->venue,
+                'starts_at' => $event->starts_at->copy()->addHour()->toDateTimeString(),
+                'ends_at' => $event->ends_at->copy()->addHour()->toDateTimeString(),
+                'category' => $event->category,
+                'capacity' => $event->capacity,
+            ])
+            ->assertOk();
+
+        $this->assertSame(0, DB::table('notifications')
+            ->where('notifiable_id', $savedUser->id)
+            ->where('type', EventTimeChanged::class)
+            ->count());
+    }
+
     public function test_rsvped_student_gets_one_in_app_reminder_about_an_hour_before_event(): void
     {
         Carbon::setTestNow(now()->startOfMinute());
@@ -222,6 +249,31 @@ class EventReminderAndCheckInTest extends TestCase
             ->count());
         $this->assertSame(0, DB::table('notifications')
             ->where('notifiable_id', $otherStudent->id)
+            ->where('type', EventReminder::class)
+            ->count());
+    }
+
+    public function test_disabled_event_reminder_preference_prevents_reminder_delivery(): void
+    {
+        Carbon::setTestNow(now()->startOfMinute());
+        [, $organizer] = $this->createOrganizer();
+        $event = $this->createEvent($organizer, [
+            'starts_at' => now()->addHour(),
+            'ends_at' => now()->addHour()->addHours(2),
+        ]);
+        $student = User::factory()->create();
+        $student->forceFill(['notification_preferences' => ['event_reminders' => false]])->save();
+        Rsvp::create([
+            'user_id' => $student->id,
+            'event_id' => $event->id,
+            'status' => Rsvp::STATUS_GOING,
+            'seat_number' => 1,
+        ]);
+        $token = $student->createToken('test')->plainTextToken;
+
+        $this->useToken($token)->getJson('/api/notifications')->assertOk()->assertJsonCount(0, 'data');
+        $this->assertSame(0, DB::table('notifications')
+            ->where('notifiable_id', $student->id)
             ->where('type', EventReminder::class)
             ->count());
     }

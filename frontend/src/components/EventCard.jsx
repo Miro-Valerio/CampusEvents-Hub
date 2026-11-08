@@ -72,6 +72,9 @@ export default function EventCard({
           {event.organizer?.name || "SPC Organizer"}
         </button>
         <h3>{event.title}</h3>
+        {event.is_cancelled && (
+          <div className="event-cancelled-notice" role="status">Event cancelled</div>
+        )}
         <div className="event-meta">
           <span>
             <CalendarDays size={15} />
@@ -104,7 +107,11 @@ export default function EventCard({
           <div className="seat-copy">
             <Users size={15} />
             <span>
-              <b>{event.registered_count}</b> of {event.capacity} {past ? "attended" : "going"}
+              {event.is_cancelled ? (
+                <b>Event cancelled</b>
+              ) : (
+                <><b>{event.registered_count}</b> of {event.capacity} {past ? "attended" : "going"}</>
+              )}
             </span>
           </div>
           <div className="seat-track">
@@ -131,7 +138,7 @@ export default function EventCard({
             </>
           )}
         </button>
-        {!past && canRsvp && (
+        {!past && !event.is_cancelled && canRsvp && (
           <button
             className={`btn ${myRsvp || isRsvped ? "btn-outline" : "btn-primary"} full-btn rsvp-button`}
             disabled={isBusy || isFull}

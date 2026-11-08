@@ -22,6 +22,7 @@ import OrganizerDashboard from "./components/OrganizerDashboard";
 import OrganizerPage from "./components/OrganizerPage";
 import OrganizersView from "./components/OrganizersView";
 import SeatConfirmationModal from "./components/SeatConfirmationModal";
+import UserSettingsView from "./components/UserSettingsView";
 import { downloadIcs } from "./utils/ics";
 import "./css/base.css";
 import "./css/header.css";
@@ -37,6 +38,7 @@ import "./css/announcements.css";
 import "./css/event-page.css";
 import "./css/calendar.css";
 import "./css/archive.css";
+import "./css/settings.css";
 import "./css/footer.css";
 import "./css/responsive.css";
 
@@ -400,6 +402,24 @@ function App() {
     } catch {
       showError("Could not load organizer details. Please retry.", () => openOrganizer(id));
     }
+  };
+
+  const submitEventReport = async (eventId, report) => {
+    try {
+      await http.post(`/events/${eventId}/reports`, report);
+    } catch (requestError) {
+      throw new Error(
+        requestError.response?.data?.message ||
+          Object.values(requestError.response?.data?.errors || {}).flat()[0] ||
+          "Could not submit the report. Please try again.",
+      );
+    }
+  };
+
+  const updateSignedInUser = (updatedUser) => {
+    setUser(updatedUser);
+    const token = localStorage.getItem(tokenKey);
+    if (token) cacheUser(token, updatedUser);
   };
 
   // ---------- auth ----------
@@ -866,8 +886,16 @@ function App() {
             onSave={toggleSave}
             onCalendar={toggleCalendar}
             onOrganizer={openOrganizer}
+            onReport={submitEventReport}
+            onLogin={user ? undefined : () => {
+              setAuthMode("login");
+              setAuthOpen(true);
+              clearError();
+            }}
+            onNotice={setNotice}
             prettyDate={prettyDate}
             canRsvp={user?.role !== "organizer"}
+            canReport={Boolean(user) && user.organizer?.id !== selected.organizer_id}
           />
         )}
         {view === "calendar" && (
@@ -896,6 +924,14 @@ function App() {
             onProfileChange={(organizer) =>
               setUser((current) => ({ ...current, organizer }))
             }
+            onNotice={setNotice}
+          />
+        )}
+        {view === "settings" && user && (
+          <UserSettingsView
+            http={http}
+            user={user}
+            onUserChange={updateSignedInUser}
             onNotice={setNotice}
           />
         )}

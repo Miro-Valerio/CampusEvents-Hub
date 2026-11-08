@@ -37,6 +37,10 @@ class NotificationController extends Controller
 
     private function sendDueEventReminders(User $user): void
     {
+        if (! $user->wantsNotification('event_reminders')) {
+            return;
+        }
+
         $now = now();
         $windowStart = $now->copy()->addHour()->subMinute();
         $windowEnd = $now->copy()->addHour();

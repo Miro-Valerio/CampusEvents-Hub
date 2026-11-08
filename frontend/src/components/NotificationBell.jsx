@@ -65,10 +65,14 @@ export default function NotificationBell({
           ) : notifications.length === 0 ? (
             <div className="notification-empty">
               <Bell size={20} />
-              <span>No notifications yet.</span>
-              <small>Campus updates, event reminders, and schedule changes will show up here.</small>
+            <span>You are all caught up.</span>
+            <small>No new campus announcements or event updates.</small>
             </div>
           ) : (
+          <>
+            {unreadCount === 0 && (
+              <div className="notification-caught-up" role="status">You are all caught up.</div>
+            )}
             <div className="notification-list">
               {notifications.map((notification) => {
                 const data = notification.data || {};
@@ -107,6 +111,7 @@ export default function NotificationBell({
                 );
               })}
             </div>
+          </>
           )}
 
           <button

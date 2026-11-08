@@ -14,7 +14,7 @@ use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
 use Laravel\Sanctum\HasApiTokens;
 
-#[Fillable(['name', 'email', 'password', 'course'])]
+#[Fillable(['name', 'email', 'password', 'course', 'profile_photo_url', 'notification_preferences'])]
 #[Hidden(['password', 'remember_token'])]
 class User extends Authenticatable
 {
@@ -31,6 +31,7 @@ class User extends Authenticatable
         return [
             'email_verified_at' => 'datetime',
             'password' => 'hashed',
+            'notification_preferences' => 'array',
         ];
     }
 
@@ -67,5 +68,15 @@ class User extends Authenticatable
     public function announcementReactions(): HasMany
     {
         return $this->hasMany(AnnouncementReaction::class);
+    }
+
+    public function eventReports(): HasMany
+    {
+        return $this->hasMany(EventReport::class);
+    }
+
+    public function wantsNotification(string $preference): bool
+    {
+        return (bool) ($this->notification_preferences[$preference] ?? true);
     }
 }

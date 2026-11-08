@@ -13,7 +13,9 @@ class OrganizerController extends Controller
     public function index(): JsonResponse
     {
         $organizers = Organizer::query()
-            ->withCount(['events as upcoming_events_count' => fn (Builder $q) => $q->whereRaw('COALESCE(ends_at, starts_at) >= ?', [now()])])
+            ->withCount(['events as upcoming_events_count' => fn (Builder $q) => $q
+                ->where('is_cancelled', false)
+                ->whereRaw('COALESCE(ends_at, starts_at) >= ?', [now()])])
             ->orderBy('name')
             ->get();
 
@@ -28,12 +30,14 @@ class OrganizerController extends Controller
             'events' => fn ($q) => $q
                 ->with('organizer')
                 ->withCount(['rsvps as active_rsvps_count' => $going])
+                ->where('is_cancelled', false)
                 ->whereRaw('COALESCE(ends_at, starts_at) >= ?', [now()])
                 ->orderBy('starts_at'),
         ]);
         $organizer->setRelation('past_events', $organizer->events()
             ->with('organizer')
             ->withCount(['rsvps as active_rsvps_count' => $going])
+            ->where('is_cancelled', false)
             ->whereRaw('COALESCE(ends_at, starts_at) < ?', [now()])
             ->orderByDesc('starts_at')
             ->limit(6)

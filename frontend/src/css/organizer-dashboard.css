@@ -36,7 +36,7 @@
 
 .dashboard-stats {
   display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
+  grid-template-columns: repeat(5, minmax(0, 1fr));
   gap: 16px;
   margin-bottom: 22px;
 }
@@ -242,6 +242,10 @@
   color: var(--muted);
 }
 
+.dashboard-event-status.cancelled {
+  color: #a32929;
+}
+
 .dashboard-event-actions {
   display: flex;
   align-items: center;
@@ -309,6 +313,9 @@
 }
 
 .dashboard-attendee-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
   margin-bottom: 10px;
 }
 

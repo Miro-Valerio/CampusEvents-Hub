@@ -9,6 +9,7 @@ use App\Http\Requests\OrganizerProfileRequest;
 use App\Models\Event;
 use App\Models\EventPhoto;
 use App\Models\Rsvp;
+use App\Notifications\EventCancelled;
 use App\Notifications\EventTimeChanged;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\JsonResponse;
@@ -68,10 +69,9 @@ class OrganizerDashboardController extends Controller
             $previousStartsAt !== $event->starts_at?->toIso8601String()
             || $previousEndsAt !== $event->ends_at?->toIso8601String()
         ) {
-            Notification::send(
-                $event->savedBy()->get(),
-                new EventTimeChanged($event, $previousStartsAt, $previousEndsAt),
-            );
+            $recipients = $event->savedBy()->get()
+                ->filter(fn ($user): bool => $user->wantsNotification('event_changes'));
+            Notification::send($recipients, new EventTimeChanged($event, $previousStartsAt, $previousEndsAt));
         }
 
         return response()->json($event->loadCount([
@@ -87,6 +87,49 @@ class OrganizerDashboardController extends Controller
         $this->deleteStoredPoster($posterUrl);
 
         return response()->json(['message' => 'Event deleted successfully.']);
+    }
+
+    public function cancel(Event $event): JsonResponse
+    {
+        Gate::authorize('update', $event);
+        if ($event->is_cancelled) {
+            return response()->json(['message' => 'This event is already cancelled.', 'is_cancelled' => true]);
+        }
+
+        $recipients = DB::transaction(function () use ($event) {
+            $lockedEvent = Event::query()->lockForUpdate()->findOrFail($event->id);
+            if ($lockedEvent->is_cancelled) {
+                return collect();
+            }
+
+            $recipients = $lockedEvent->rsvps()
+                ->where('status', Rsvp::STATUS_GOING)
+                ->with('user')
+                ->get()
+                ->pluck('user')
+                ->merge($lockedEvent->savedBy()->get())
+                ->filter()
+                ->unique('id')
+                ->values();
+
+            $lockedEvent->forceFill(['is_cancelled' => true])->save();
+            $lockedEvent->rsvps()
+                ->where('status', Rsvp::STATUS_GOING)
+                ->update(['status' => Rsvp::STATUS_CANCELLED, 'seat_number' => null]);
+
+            return $recipients;
+        });
+
+        $event->refresh();
+        Notification::send(
+            $recipients->filter(fn ($user): bool => $user->wantsNotification('event_changes')),
+            new EventCancelled($event),
+        );
+
+        return response()->json([
+            'message' => 'Event cancelled. Attendees and saved users have been notified.',
+            'is_cancelled' => true,
+        ]);
     }
 
     private function storePoster(UploadedFile $poster): string
@@ -118,6 +161,7 @@ class OrganizerDashboardController extends Controller
         Gate::authorize('view', $event);
 
         $attendees = $event->rsvps()
+            ->where('status', Rsvp::STATUS_GOING)
             ->with('user:id,name,email')
             ->orderBy('seat_number')
             ->get()
@@ -209,6 +253,7 @@ class OrganizerDashboardController extends Controller
             ->whereIn('event_id', $eventIds)
             ->where('status', Rsvp::STATUS_GOING);
         $rsvpCount = (clone $goingRsvps)->count();
+        $totalViews = $organizer->events()->sum('views_count');
 
         return response()->json([
             'total_events' => $organizer->events()->count(),
@@ -217,6 +262,7 @@ class OrganizerDashboardController extends Controller
                 ->count(),
             'total_rsvps' => $rsvpCount,
             'seats_filled' => (int) $organizer->events()->sum('baseline_registered_count') + $rsvpCount,
+            'total_views' => (int) $totalViews,
         ]);
     }
 

@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from "react";
-import { CalendarDays, LogIn, LogOut, Loader2, Menu, X } from "lucide-react";
+import { CalendarDays, LogIn, LogOut, Loader2, Menu, Settings, X } from "lucide-react";
 import NotificationBell from "./NotificationBell";
 
 export default function AppHeader({
@@ -103,6 +103,9 @@ export default function AppHeader({
               onMarkAllRead={onMarkAllNotificationsRead}
               onOpenAnnouncements={onOpenNotifications}
             />
+            {user.profile_photo_url && (
+              <img className="account-avatar" src={user.profile_photo_url} alt="" />
+            )}
             <span className="user-name">Hi, {user.name}</span>
           </>
         ) : (
@@ -137,6 +140,17 @@ export default function AppHeader({
                   </>
                 )}
                 {user.role === "organizer" && menuLink("dashboard", "Organizer Dashboard")}
+                <a
+                  className={view === "settings" ? "active" : ""}
+                  href="#settings"
+                  onClick={(event) => {
+                    event.preventDefault();
+                    setMenuOpen(false);
+                    onNavigate("settings", true);
+                  }}
+                >
+                  <Settings size={16} /> Profile &amp; settings
+                </a>
                 <button
                   type="button"
                   onClick={() => {

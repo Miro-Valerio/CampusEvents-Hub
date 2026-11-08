@@ -5,10 +5,13 @@ import {
   CalendarDays,
   CalendarPlus,
   Download,
+  Flag,
   MapPin,
+  Printer,
   Users,
 } from "lucide-react";
 import { downloadIcs, isPast } from "../utils/ics";
+import { printEvent } from "../utils/print";
 
 export default function EventPage({
   event,
@@ -22,10 +25,20 @@ export default function EventPage({
   onSave,
   onCalendar,
   onOrganizer,
+  onReport,
+  onLogin,
+  onNotice,
   prettyDate,
   canRsvp = true,
+  canReport = false,
 }) {
   const [attendees, setAttendees] = useState(null);
+  const [reportOpen, setReportOpen] = useState(false);
+  const [reportReason, setReportReason] = useState("incorrect_information");
+  const [reportDetails, setReportDetails] = useState("");
+  const [reporting, setReporting] = useState(false);
+  const [reportSubmitted, setReportSubmitted] = useState(false);
+  const [reportError, setReportError] = useState("");
   const past = isPast(event);
   const isFull = !isRsvped && event.registered_count >= event.capacity;
 
@@ -113,7 +126,11 @@ export default function EventPage({
         </div>
 
         <aside className="event-page-side">
-          {past ? (
+          {event.is_cancelled ? (
+            <div className="event-cancelled-notice" role="status">
+              This event has been cancelled by the organizer.
+            </div>
+          ) : past ? (
             <div className="full-notice">This event has ended.</div>
           ) : (
             <>
@@ -156,6 +173,64 @@ export default function EventPage({
           <button className="organizer-link modal-org" onClick={() => onOrganizer(event.organizer_id)}>
             View organizer: {event.organizer?.name}
           </button>
+          <button
+            className="btn btn-outline full-btn event-print-button"
+            onClick={() => {
+              if (!printEvent(event)) onNotice?.("Allow pop-ups in your browser to print this event page.");
+            }}
+          >
+            <Printer size={16} /> Print event page
+          </button>
+          {(canReport || onLogin) && (
+            <button
+              className="btn btn-outline full-btn"
+              onClick={() => canReport ? setReportOpen((open) => !open) : onLogin?.()}
+            >
+              <Flag size={16} /> Report this event
+            </button>
+          )}
+          {reportOpen && canReport && (
+            reportSubmitted ? (
+              <div className="event-report-success" role="status">
+                Thanks. Your report was submitted for staff review.
+              </div>
+            ) : (
+              <form
+                className="event-report-form"
+                onSubmit={async (submit) => {
+                  submit.preventDefault();
+                  setReporting(true);
+                  setReportError("");
+                  try {
+                    await onReport(event.id, { reason: reportReason, details: reportDetails });
+                    setReportSubmitted(true);
+                  } catch (error) {
+                    setReportError(error.message);
+                  } finally {
+                    setReporting(false);
+                  }
+                }}
+              >
+                <label>
+                  Why are you reporting this event?
+                  <select value={reportReason} onChange={(change) => setReportReason(change.target.value)}>
+                    <option value="incorrect_information">Incorrect information</option>
+                    <option value="inappropriate">Inappropriate content</option>
+                    <option value="duplicate">Duplicate event</option>
+                    <option value="other">Other concern</option>
+                  </select>
+                </label>
+                <label>
+                  Details (optional)
+                  <textarea maxLength={1000} rows={3} value={reportDetails} onChange={(change) => setReportDetails(change.target.value)} />
+                </label>
+                {reportError && <p className="event-report-error" role="alert">{reportError}</p>}
+                <button className="btn btn-primary full-btn" type="submit" disabled={reporting}>
+                  {reporting ? "Submitting..." : "Submit report"}
+                </button>
+              </form>
+            )
+          )}
 
           <div className="attendees-box">
             <b>Who’s going</b>

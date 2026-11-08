@@ -15,9 +15,15 @@ class Event extends Model
     protected $fillable = [
         'title', 'description', 'poster_url', 'venue', 'starts_at', 'ends_at',
         'category', 'rules', 'capacity', 'baseline_registered_count', 'organizer_id',
+        'is_cancelled', 'views_count',
     ];
 
-    protected $casts = ['starts_at' => 'datetime', 'ends_at' => 'datetime'];
+    protected $casts = [
+        'starts_at' => 'datetime',
+        'ends_at' => 'datetime',
+        'is_cancelled' => 'boolean',
+        'views_count' => 'integer',
+    ];
 
     protected function registeredCount(): Attribute
     {
@@ -43,5 +49,10 @@ class Event extends Model
     public function rsvps(): HasMany
     {
         return $this->hasMany(Rsvp::class);
+    }
+
+    public function reports(): HasMany
+    {
+        return $this->hasMany(EventReport::class);
     }
 }

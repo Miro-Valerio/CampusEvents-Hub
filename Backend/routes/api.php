@@ -7,6 +7,7 @@ use App\Http\Controllers\Api\NotificationController;
 use App\Http\Controllers\Api\OrganizerAnnouncementController;
 use App\Http\Controllers\Api\OrganizerController;
 use App\Http\Controllers\Api\OrganizerDashboardController;
+use App\Http\Controllers\Api\UserSettingsController;
 use App\Http\Middleware\EnsureOrganizer;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
@@ -33,6 +34,9 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::get('/notifications', [NotificationController::class, 'index']);
     Route::post('/notifications/read-all', [NotificationController::class, 'markAllRead']);
     Route::post('/notifications/{notification}/read', [NotificationController::class, 'markRead']);
+    Route::get('/notification-preferences', [UserSettingsController::class, 'preferences']);
+    Route::put('/notification-preferences', [UserSettingsController::class, 'updatePreferences']);
+    Route::match(['put', 'post'], '/profile', [UserSettingsController::class, 'updateProfile']);
     Route::get('/my-rsvps', [EventController::class, 'myRsvps']);
     Route::get('/my-checkins', [EventController::class, 'myCheckIns']);
     Route::get('/my-saves', [EventController::class, 'mySaves']);
@@ -42,6 +46,7 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::post('/events/{event}/rsvp', [EventController::class, 'storeRsvp']);
     Route::delete('/events/{event}/rsvp', [EventController::class, 'cancelRsvp']);
     Route::post('/events/{event}/save', [EventController::class, 'toggleSave']);
+    Route::post('/events/{event}/reports', [EventController::class, 'report'])->middleware('throttle:5,60');
 
     Route::prefix('organizer')->middleware(EnsureOrganizer::class)->group(function () {
         Route::get('/announcements', [OrganizerAnnouncementController::class, 'index']);
@@ -53,6 +58,7 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::post('/events', [OrganizerDashboardController::class, 'store']);
         Route::put('/events/{event}', [OrganizerDashboardController::class, 'update']);
         Route::delete('/events/{event}', [OrganizerDashboardController::class, 'destroy']);
+        Route::post('/events/{event}/cancel', [OrganizerDashboardController::class, 'cancel']);
         Route::get('/events/{event}/attendees', [OrganizerDashboardController::class, 'attendees']);
         Route::post('/events/{event}/check-in', [OrganizerDashboardController::class, 'checkIn'])->middleware('throttle:30,1');
         Route::post('/events/{event}/photos', [OrganizerDashboardController::class, 'storePhoto']);
