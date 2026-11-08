@@ -12,12 +12,17 @@ export function openPrintPage(title, body) {
   const printWindow = window.open("", "_blank", "width=900,height=700");
   if (!printWindow) return false;
 
-  printWindow.onload = () => {
+  let printStarted = false;
+  const startPrint = () => {
+    if (printStarted || printWindow.closed) return;
+    printStarted = true;
     window.setTimeout(() => {
+      if (printWindow.closed) return;
       printWindow.focus();
       printWindow.print();
     }, 250);
   };
+  printWindow.addEventListener("load", startPrint, { once: true });
   printWindow.document.write(`<!doctype html>
     <html lang="en">
       <head>
@@ -27,6 +32,9 @@ export function openPrintPage(title, body) {
         <style>
           * { box-sizing: border-box; }
           body { margin: 32px; color: #172b45; font: 14px Arial, sans-serif; }
+          .print-toolbar { display: flex; align-items: center; justify-content: space-between; gap: 16px; margin-bottom: 24px; padding: 12px 16px; border: 1px solid #cbd5df; border-radius: 8px; background: #f7f9fb; }
+          .print-toolbar p { margin: 0; color: #5e6f82; }
+          .print-toolbar button { padding: 9px 16px; border: 0; border-radius: 6px; background: #7d1a0d; color: #fff; font: inherit; font-weight: 700; cursor: pointer; }
           h1 { margin: 0 0 8px; font-size: 24px; }
           p { line-height: 1.5; }
           .print-muted { color: #5e6f82; }
@@ -36,12 +44,23 @@ export function openPrintPage(title, body) {
           table { width: 100%; border-collapse: collapse; margin-top: 20px; }
           th, td { padding: 9px; border: 1px solid #cbd5df; text-align: left; }
           th { background: #f0f3f6; }
-          @media print { body { margin: 14mm; } }
+          @media print {
+            body { margin: 14mm; }
+            .print-toolbar { display: none !important; }
+            tr { break-inside: avoid; }
+          }
         </style>
       </head>
-      <body>${body}</body>
+      <body>
+        <div class="print-toolbar">
+          <p>If the print dialog did not open, select Print. In the dialog, choose a printer or “Save as PDF”.</p>
+          <button type="button" onclick="window.print()">Print</button>
+        </div>
+        ${body}
+      </body>
     </html>`);
   printWindow.document.close();
+  window.setTimeout(startPrint, 1000);
   return true;
 }
 
