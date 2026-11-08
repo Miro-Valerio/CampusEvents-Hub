@@ -90,17 +90,20 @@ class CampusEventsApiTest extends TestCase
             'email' => 'campus.student@example.com',
             'password' => 'secure-password',
             'password_confirmation' => 'secure-password',
+            'department' => 'CCS',
         ]);
 
         $response
             ->assertCreated()
             ->assertJsonPath('user.email', 'campus.student@example.com')
             ->assertJsonPath('user.role', 'student')
+            ->assertJsonPath('user.department', 'CCS')
             ->assertJsonMissingPath('user.password')
             ->assertJsonPath('token', fn (string $token): bool => $token !== '');
 
         $this->assertDatabaseHas('users', [
             'email' => 'campus.student@example.com',
+            'department' => 'CCS',
         ]);
         $this->assertDatabaseHas('personal_access_tokens', [
             'tokenable_id' => $response->json('user.id'),
@@ -108,33 +111,40 @@ class CampusEventsApiTest extends TestCase
         ]);
     }
 
-    public function test_registration_creates_an_organizer_and_rejects_unapproved_roles(): void
+    public function test_registration_only_creates_student_accounts_and_rejects_organizer_roles(): void
     {
         $this->postJson('/api/register', [
             'name' => 'Event Organizer',
             'email' => 'new.organizer@example.com',
             'password' => 'secure-password',
             'password_confirmation' => 'secure-password',
+            'department' => 'CCS',
             'role' => 'organizer',
             'organization_name' => 'Campus Arts Club',
             'description' => 'Arts and culture events.',
         ])
-            ->assertCreated()
-            ->assertJsonPath('user.role', 'organizer')
-            ->assertJsonPath('user.organizer.name', 'Campus Arts Club')
-            ->assertJsonPath('user.organizer.description', 'Arts and culture events.');
-
-        $this->assertDatabaseHas('organizers', ['name' => 'Campus Arts Club']);
+            ->assertUnprocessable()
+            ->assertJsonValidationErrors(['role', 'organization_name', 'description']);
 
         $this->postJson('/api/register', [
             'name' => 'Admin Attempt',
             'email' => 'admin.attempt@example.com',
             'password' => 'secure-password',
             'password_confirmation' => 'secure-password',
+            'department' => 'CCS',
             'role' => 'admin',
         ])->assertUnprocessable()->assertJsonValidationErrors(['role']);
 
+        $this->postJson('/api/register', [
+            'name' => 'Invalid Department',
+            'email' => 'invalid.department@example.com',
+            'password' => 'secure-password',
+            'password_confirmation' => 'secure-password',
+            'department' => 'NOT-A-DEPARTMENT',
+        ])->assertUnprocessable()->assertJsonValidationErrors(['department']);
+
         $this->assertDatabaseMissing('users', ['email' => 'admin.attempt@example.com']);
+        $this->assertDatabaseMissing('users', ['email' => 'new.organizer@example.com']);
     }
 
     public function test_login_and_current_user_include_role_and_organizer_profile(): void
@@ -373,11 +383,13 @@ class CampusEventsApiTest extends TestCase
                 '_method' => 'PUT',
                 'name' => 'Updated Student',
                 'course' => 'BS Computer Science',
+                'department' => 'COE',
                 'profile_photo' => UploadedFile::fake()->image('profile.png'),
             ], ['Accept' => 'application/json'])
             ->assertOk()
             ->assertJsonPath('name', 'Updated Student')
             ->assertJsonPath('course', 'BS Computer Science')
+            ->assertJsonPath('department', 'COE')
             ->assertJsonPath('profile_photo_url', fn (string $url): bool => str_contains($url, '/storage/user-profiles/'));
 
         $photoPath = substr((string) parse_url($response->json('profile_photo_url'), PHP_URL_PATH), strlen('/storage/'));

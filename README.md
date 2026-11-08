@@ -26,6 +26,7 @@ Create the `campusevents-hubspc` database in phpMyAdmin before running the migra
 Update the MySQL credentials in `Backend/.env` if they differ from the defaults.
 `php artisan migrate --seed` creates the tables and demo data without dropping existing tables.
 Demo login: `student@spc.edu.ph` / `password`
+New registrations are student accounts and must select a department: CCS, BSCRIM, COE, CED, CAD, or CBA. Organizer accounts are managed separately and cannot be created through public student registration.
 
 Event reminders appear in the in-app notification panel about one hour before an event for students with an active RSVP. Keep the app open and signed in to receive them. Students who bookmarked an event are notified in-app if its schedule changes. Organizers can check in attendees from their dashboard using the code shown on the student's **My RSVPs** page; students can view completed check-ins under **Check-in history**.
 

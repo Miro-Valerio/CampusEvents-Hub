@@ -1,6 +1,6 @@
 import React from "react";
 import { CalendarDays, Loader2, X } from "lucide-react";
-import { COURSES } from "../constants";
+import { COURSES, DEPARTMENTS } from "../constants";
 
 export default function AuthModal({
   mode,
@@ -13,8 +13,6 @@ export default function AuthModal({
   error,
   isSubmitting,
 }) {
-  const isOrganizerRegistration = mode === "register" && form.role === "organizer";
-
   return (
     <div className="modal-backdrop" onClick={isSubmitting ? undefined : onClose}>
       <div
@@ -59,18 +57,23 @@ export default function AuthModal({
           )}
           {mode === "register" && (
             <label>
-              Account type
+              Department
               <select
-                value={form.role}
-                onChange={(event) => onFormChange("role", event.target.value)}
+                required
+                value={form.department}
+                onChange={(event) => onFormChange("department", event.target.value)}
                 disabled={isSubmitting}
               >
-                <option value="student">Student</option>
-                <option value="organizer">Event organizer</option>
+                <option value="">Select your department</option>
+                {DEPARTMENTS.map((department) => (
+                  <option key={department} value={department}>
+                    {department}
+                  </option>
+                ))}
               </select>
             </label>
           )}
-          {mode === "register" && form.role === "student" && (
+          {mode === "register" && (
             <label>
               Course (optional)
               <select
@@ -86,33 +89,6 @@ export default function AuthModal({
                 ))}
               </select>
             </label>
-          )}
-          {isOrganizerRegistration && (
-            <>
-              <label>
-                Organization name
-                <input
-                  required
-                  maxLength="190"
-                  value={form.organization_name}
-                  onChange={(event) =>
-                    onFormChange("organization_name", event.target.value)
-                  }
-                  placeholder="Your organization"
-                />
-              </label>
-              <label>
-                Organization description
-                <textarea
-                  required
-                  maxLength="5000"
-                  value={form.description}
-                  onChange={(event) => onFormChange("description", event.target.value)}
-                  placeholder="Tell students about your organization"
-                  rows="3"
-                />
-              </label>
-            </>
           )}
           <label>
             Email address

@@ -17,23 +17,16 @@ class AuthController extends Controller
     public function register(RegisterRequest $request): JsonResponse
     {
         $data = $request->validated();
-        $role = $data['role'] ?? 'student';
-        $user = DB::transaction(function () use ($data, $role): User {
+        $user = DB::transaction(function () use ($data): User {
             $user = User::create([
                 'name' => $data['name'],
                 'email' => $data['email'],
                 'password' => Hash::make($data['password']),
-                'course' => $role === 'student' ? ($data['course'] ?? null) : null,
+                'course' => $data['course'] ?? null,
+                'department' => $data['department'],
             ]);
-            $user->role = $role;
+            $user->role = 'student';
             $user->save();
-
-            if ($role === 'organizer') {
-                $user->organizer()->create([
-                    'name' => $data['organization_name'],
-                    'description' => $data['description'],
-                ]);
-            }
 
             return $user->load('organizer');
         });

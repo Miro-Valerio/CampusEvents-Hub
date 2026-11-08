@@ -172,9 +172,7 @@ function App() {
     email: "",
     password: "",
     password_confirmation: "",
-    role: "student",
-    organization_name: "",
-    description: "",
+    department: "",
     course: "",
   });
 
