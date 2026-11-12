@@ -11,23 +11,35 @@ use Illuminate\Support\Str;
 
 class Event extends Model
 {
-    protected $appends = ['registered_count'];
+    public const STATUS_PUBLISHED = 'published';
+
+    public const STATUS_CANCELLED = 'cancelled';
+
+    protected $appends = ['registered_count', 'is_cancelled'];
 
     protected $fillable = [
         'title', 'description', 'poster_url', 'venue', 'starts_at', 'ends_at',
         'category', 'rules', 'capacity', 'baseline_registered_count', 'organizer_id',
-        'check_in_code',
+        'check_in_code', 'status', 'cancelled_at', 'cancellation_reason', 'views_count',
     ];
 
     protected $hidden = ['check_in_code'];
 
-    protected $casts = ['starts_at' => 'datetime', 'ends_at' => 'datetime'];
+    protected $casts = [
+        'starts_at' => 'datetime',
+        'ends_at' => 'datetime',
+        'cancelled_at' => 'datetime',
+    ];
 
     protected static function booted(): void
     {
         static::creating(function (Event $event): void {
             if (blank($event->check_in_code)) {
                 $event->check_in_code = self::generateCheckInCode();
+            }
+
+            if (blank($event->status)) {
+                $event->status = self::STATUS_PUBLISHED;
             }
         });
     }
@@ -45,6 +57,11 @@ class Event extends Model
     {
         return Attribute::get(fn (mixed $value, array $attributes): int => (int) ($attributes['baseline_registered_count'] ?? 0)
             + (int) ($attributes['active_rsvps_count'] ?? 0));
+    }
+
+    protected function isCancelled(): Attribute
+    {
+        return Attribute::get(fn (mixed $value, array $attributes): bool => ($attributes['status'] ?? self::STATUS_PUBLISHED) === self::STATUS_CANCELLED);
     }
 
     public function organizer(): BelongsTo
@@ -65,5 +82,10 @@ class Event extends Model
     public function rsvps(): HasMany
     {
         return $this->hasMany(Rsvp::class);
+    }
+
+    public function reports(): HasMany
+    {
+        return $this->hasMany(EventReport::class);
     }
 }

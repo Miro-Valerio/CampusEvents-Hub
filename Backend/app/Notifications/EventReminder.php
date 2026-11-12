@@ -17,7 +17,7 @@ class EventReminder extends Notification
      */
     public function via(object $notifiable): array
     {
-        return ['database'];
+        return $notifiable->wantsNotification('event_reminders') ? ['database'] : [];
     }
 
     /**

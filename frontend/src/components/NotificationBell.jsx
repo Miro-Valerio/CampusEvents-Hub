@@ -1,5 +1,5 @@
 import React, { useEffect, useRef } from "react";
-import { Bell, CheckCheck } from "lucide-react";
+import { Bell, CheckCheck, Settings } from "lucide-react";
 
 export default function NotificationBell({
   notifications,
@@ -11,6 +11,7 @@ export default function NotificationBell({
   onClose,
   onMarkAllRead,
   onOpenAnnouncements,
+  onOpenSettings,
 }) {
   const wrapRef = useRef(null);
 
@@ -30,6 +31,8 @@ export default function NotificationBell({
     };
   }, [open, onClose]);
 
+  const caughtUp = !loading && unreadCount === 0;
+
   return (
     <div className="notification-wrap" ref={wrapRef}>
       <button
@@ -39,7 +42,7 @@ export default function NotificationBell({
         aria-label={
           unreadCount > 0
             ? `Notifications, ${unreadCount} unread`
-            : "Notifications"
+            : "Notifications, you are all caught up"
         }
         aria-expanded={open}
       >
@@ -62,49 +65,72 @@ export default function NotificationBell({
 
           {loading ? (
             <div className="notification-empty">Loading notifications...</div>
-          ) : notifications.length === 0 ? (
-            <div className="notification-empty">
-              <Bell size={20} />
-              <span>No notifications yet.</span>
-              <small>New announcements and event updates will show up here.</small>
-            </div>
           ) : (
-            <div className="notification-list">
-              {notifications.map((notification) => (
-                <button
-                  type="button"
-                  className={`notification-item${notification.read_at ? "" : " unread"}`}
-                  key={notification.id}
-                  onClick={() => onOpenAnnouncements(notification)}
-                >
-                  <span className="notification-dot" />
-                  <span className="notification-copy">
-                    <b>{notification.data?.title || "Campus announcement"}</b>
-                    <p>{notification.data?.message}</p>
-                    <small>
-                      {notification.data?.organizer || "SPC Campus"}
-                      {notification.data?.course
-                        ? ` · ${notification.data.course}`
-                        : notification.data?.type?.startsWith("event")
-                          ? " · Event update"
-                          : " · Campus-wide"}
-                      {notification.created_at
-                        ? ` · ${prettyDate(notification.created_at)}`
-                        : ""}
-                    </small>
+            <>
+              {caughtUp && notifications.length > 0 && (
+                <div className="notification-caught-up" role="status">
+                  <CheckCheck size={15} />
+                  <span>You’re all caught up</span>
+                </div>
+              )}
+              {notifications.length === 0 ? (
+                <div className="notification-empty notification-empty-caught-up">
+                  <CheckCheck size={20} />
+                  <span>
+                    {caughtUp ? "You’re all caught up" : "No notifications yet."}
                   </span>
-                </button>
-              ))}
-            </div>
+                  <small>New announcements and event updates will show up here.</small>
+                </div>
+              ) : (
+                <div className="notification-list">
+                  {notifications.map((notification) => (
+                    <button
+                      type="button"
+                      className={`notification-item${notification.read_at ? "" : " unread"}`}
+                      key={notification.id}
+                      onClick={() => onOpenAnnouncements(notification)}
+                    >
+                      <span className="notification-dot" />
+                      <span className="notification-copy">
+                        <b>{notification.data?.title || "Campus announcement"}</b>
+                        <p>{notification.data?.message}</p>
+                        <small>
+                          {notification.data?.organizer || "SPC Campus"}
+                          {notification.data?.course
+                            ? ` · ${notification.data.course}`
+                            : notification.data?.type?.startsWith("event")
+                              ? " · Event update"
+                              : " · Campus-wide"}
+                          {notification.created_at
+                            ? ` · ${prettyDate(notification.created_at)}`
+                            : ""}
+                        </small>
+                      </span>
+                    </button>
+                  ))}
+                </div>
+              )}
+            </>
           )}
 
-          <button
-            type="button"
-            className="notification-view-all"
-            onClick={() => onOpenAnnouncements()}
-          >
-            View campus announcements
-          </button>
+          <div className="notification-footer">
+            <button
+              type="button"
+              className="notification-view-all"
+              onClick={() => onOpenAnnouncements()}
+            >
+              View campus announcements
+            </button>
+            {onOpenSettings && (
+              <button
+                type="button"
+                className="notification-settings"
+                onClick={onOpenSettings}
+              >
+                <Settings size={13} /> Settings
+              </button>
+            )}
+          </div>
         </div>
       )}
     </div>

@@ -3,10 +3,12 @@
 use App\Http\Controllers\Api\AnnouncementController;
 use App\Http\Controllers\Api\AuthController;
 use App\Http\Controllers\Api\EventController;
+use App\Http\Controllers\Api\EventReportController;
 use App\Http\Controllers\Api\NotificationController;
 use App\Http\Controllers\Api\OrganizerAnnouncementController;
 use App\Http\Controllers\Api\OrganizerController;
 use App\Http\Controllers\Api\OrganizerDashboardController;
+use App\Http\Controllers\Api\ProfileController;
 use App\Http\Middleware\EnsureOrganizer;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
@@ -31,8 +33,13 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::post('/announcements/{announcement}/read', [AnnouncementController::class, 'markRead']);
     Route::post('/announcements/{announcement}/react', [AnnouncementController::class, 'react']);
     Route::get('/notifications', [NotificationController::class, 'index']);
+    Route::get('/settings/notifications', [NotificationController::class, 'preferences']);
+    Route::put('/settings/notifications', [NotificationController::class, 'updatePreferences']);
     Route::post('/notifications/read-all', [NotificationController::class, 'markAllRead']);
     Route::post('/notifications/{notification}/read', [NotificationController::class, 'markRead']);
+    Route::get('/profile', [ProfileController::class, 'show']);
+    Route::put('/profile', [ProfileController::class, 'update']);
+    Route::post('/profile/photo', [ProfileController::class, 'uploadPhoto']);
     Route::get('/my-rsvps', [EventController::class, 'myRsvps']);
     Route::get('/my-saves', [EventController::class, 'mySaves']);
     Route::get('/my-calendar', [EventController::class, 'myCalendar']);
@@ -44,6 +51,7 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::post('/events/{event}/rsvp', [EventController::class, 'storeRsvp']);
     Route::delete('/events/{event}/rsvp', [EventController::class, 'cancelRsvp']);
     Route::post('/events/{event}/save', [EventController::class, 'toggleSave']);
+    Route::post('/events/{event}/report', [EventReportController::class, 'store'])->middleware('throttle:5,1');
 
     Route::prefix('organizer')->middleware(EnsureOrganizer::class)->group(function () {
         Route::get('/announcements', [OrganizerAnnouncementController::class, 'index']);
@@ -54,10 +62,14 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::get('/events', [OrganizerDashboardController::class, 'index']);
         Route::post('/events', [OrganizerDashboardController::class, 'store']);
         Route::put('/events/{event}', [OrganizerDashboardController::class, 'update']);
+        Route::post('/events/{event}/cancel', [OrganizerDashboardController::class, 'cancel']);
+        Route::post('/events/{event}/restore', [OrganizerDashboardController::class, 'restore']);
         Route::delete('/events/{event}', [OrganizerDashboardController::class, 'destroy']);
         Route::get('/events/{event}/attendees', [OrganizerDashboardController::class, 'attendees']);
         Route::post('/events/{event}/photos', [OrganizerDashboardController::class, 'storePhoto']);
         Route::delete('/photos/{photo}', [OrganizerDashboardController::class, 'destroyPhoto']);
+        Route::get('/reports', [EventReportController::class, 'organizerIndex']);
+        Route::post('/reports/{report}/resolve', [EventReportController::class, 'resolve']);
         Route::get('/stats', [OrganizerDashboardController::class, 'stats']);
         Route::put('/profile', [OrganizerDashboardController::class, 'updateProfile']);
     });

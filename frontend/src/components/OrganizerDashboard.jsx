@@ -1,8 +1,12 @@
 import React, { useEffect, useState } from "react";
 import {
+  Ban,
   CalendarDays,
+  CheckCheck,
   CheckCircle2,
   Download,
+  Eye,
+  Flag,
   ImagePlus,
   KeyRound,
   Megaphone,
@@ -10,13 +14,25 @@ import {
   Pin,
   PinOff,
   Plus,
+  Printer,
   RefreshCw,
+  RotateCcw,
   Save,
   Trash2,
   Users,
   X,
 } from "lucide-react";
 import { COURSES } from "../constants";
+import { printEventPoster, printRsvpSheet } from "../utils/print";
+
+const REPORT_REASON_LABELS = {
+  wrong_details: "Details look wrong",
+  wrong_date: "Date or time is wrong",
+  spam_or_scam: "Spam or scam",
+  inappropriate: "Inappropriate content",
+  duplicate: "Duplicate listing",
+  other: "Something else",
+};
 
 const emptyEvent = () => {
   const start = new Date(Date.now() + 24 * 60 * 60 * 1000);
@@ -79,6 +95,7 @@ export default function OrganizerDashboard({
 }) {
   const [events, setEvents] = useState([]);
   const [announcements, setAnnouncements] = useState([]);
+  const [reports, setReports] = useState([]);
   const [announcementForm, setAnnouncementForm] = useState(emptyAnnouncement);
   const [stats, setStats] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -102,14 +119,17 @@ export default function OrganizerDashboard({
     setDashboardError(null);
     setValidationMessages([]);
     try {
-      const [eventResponse, statsResponse, announcementResponse] = await Promise.all([
-        http.get("/organizer/events"),
-        http.get("/organizer/stats"),
-        http.get("/organizer/announcements"),
-      ]);
+      const [eventResponse, statsResponse, announcementResponse, reportResponse] =
+        await Promise.all([
+          http.get("/organizer/events"),
+          http.get("/organizer/stats"),
+          http.get("/organizer/announcements"),
+          http.get("/organizer/reports"),
+        ]);
       setEvents(eventResponse.data.data || []);
       setStats(statsResponse.data);
       setAnnouncements(announcementResponse.data.data || []);
+      setReports(reportResponse.data.data || []);
     } catch (error) {
       setLoadFailed(true);
       setDashboardError({ message: errorMessage(error), retry: loadDashboard });
@@ -177,6 +197,93 @@ export default function OrganizerDashboard({
     } finally {
       setBusy("");
     }
+  };
+
+  const cancelEvent = async (event) => {
+    if (event.is_cancelled) return;
+    const reason = window.prompt(
+      `Cancel "${event.title}"?\n\nEveryone who RSVPed will be notified. You can add an optional reason below.`,
+      "",
+    );
+    if (reason === null) return;
+
+    setBusy(`cancel-${event.id}`);
+    setDashboardError(null);
+    setValidationMessages([]);
+    try {
+      const { data } = await http.post(`/organizer/events/${event.id}/cancel`, {
+        reason: reason.trim() || null,
+      });
+      onNotice(data.message || "Event cancelled.");
+      await loadDashboard();
+      onEventsChanged?.();
+    } catch (error) {
+      reportError(error, () => cancelEvent(event));
+    } finally {
+      setBusy("");
+    }
+  };
+
+  const restoreEvent = async (event) => {
+    setBusy(`restore-${event.id}`);
+    setDashboardError(null);
+    setValidationMessages([]);
+    try {
+      const { data } = await http.post(`/organizer/events/${event.id}/restore`);
+      onNotice(data.message || "Event reactivated.");
+      await loadDashboard();
+      onEventsChanged?.();
+    } catch (error) {
+      reportError(error, () => restoreEvent(event));
+    } finally {
+      setBusy("");
+    }
+  };
+
+  const resolveReport = async (report) => {
+    setBusy(`report-${report.id}`);
+    setDashboardError(null);
+    setValidationMessages([]);
+    try {
+      const { data } = await http.post(`/organizer/reports/${report.id}/resolve`);
+      onNotice(data.message || "Report marked as resolved.");
+      await loadDashboard();
+    } catch (error) {
+      reportError(error, () => resolveReport(report));
+    } finally {
+      setBusy("");
+    }
+  };
+
+  const printAttendees = async (event) => {
+    setBusy(`print-${event.id}`);
+    setDashboardError(null);
+    setValidationMessages([]);
+    try {
+      let list = attendees[event.id];
+      if (!list) {
+        const { data } = await http.get(`/organizer/events/${event.id}/attendees`);
+        list = data.data || [];
+        setAttendees((current) => ({ ...current, [event.id]: list }));
+      }
+      printRsvpSheet({
+        event,
+        attendees: list,
+        organizerName: organizer?.name,
+        generatedAt: new Date().toLocaleString(),
+      });
+    } catch (error) {
+      reportError(error, () => printAttendees(event));
+    } finally {
+      setBusy("");
+    }
+  };
+
+  const printPoster = (event) => {
+    printEventPoster({
+      ...event,
+      organizer: event.organizer || { name: organizer?.name },
+    });
   };
 
   const saveAnnouncement = async (event) => {
@@ -368,7 +475,10 @@ export default function OrganizerDashboard({
         {[
           ["Events", stats?.total_events, <CalendarDays size={19} />],
           ["Upcoming", stats?.upcoming_events, <CalendarDays size={19} />],
+          ["Cancelled", stats?.cancelled_events, <Ban size={19} />],
           ["Going RSVPs", stats?.total_rsvps, <Users size={19} />],
+          ["Event views", stats?.total_views, <Eye size={19} />],
+          ["Open reports", stats?.open_reports, <Flag size={19} />],
           ["Checked in", stats?.total_check_ins, <CheckCircle2 size={19} />],
           ["Seats filled", stats?.seats_filled, <Users size={19} />],
         ].map(([label, value, icon]) => (
@@ -693,6 +803,63 @@ export default function OrganizerDashboard({
         </section>
       </div>
 
+      <section className="dashboard-panel dashboard-reports">
+        <div className="dashboard-panel-heading">
+          <div>
+            <h2>Reported listings</h2>
+            <p>Students flagged these events. Resolve a report once the listing is fixed.</p>
+          </div>
+          <span className="dashboard-count">
+            {reports.filter((report) => report.status === "open").length}
+          </span>
+        </div>
+        {loading ? (
+          <div className="loading-line"><span /> Loading reports...</div>
+        ) : reports.length === 0 ? (
+          <div className="dashboard-empty">
+            No reports — your listings look good.
+          </div>
+        ) : (
+          <div className="dashboard-report-list">
+            {reports.map((report) => {
+              const open = report.status === "open";
+              return (
+                <article
+                  className={`dashboard-report${open ? "" : " resolved"}`}
+                  key={report.id}
+                >
+                  <div className="dashboard-report-main">
+                    <span className={`dashboard-report-status${open ? " open" : " resolved"}`}>
+                      {open ? "Open" : "Resolved"}
+                    </span>
+                    <h3>{report.event?.title || "Deleted event"}</h3>
+                    <p>
+                      <b>{REPORT_REASON_LABELS[report.reason] || report.reason}</b>
+                      {report.details ? ` — ${report.details}` : ""}
+                    </p>
+                    <small>
+                      {report.user?.name || "A student"}
+                      {report.user?.email ? ` · ${report.user.email}` : ""} ·{" "}
+                      {new Date(report.created_at).toLocaleString()}
+                    </small>
+                  </div>
+                  {open && (
+                    <button
+                      className="btn btn-outline"
+                      type="button"
+                      onClick={() => resolveReport(report)}
+                      disabled={busy === `report-${report.id}`}
+                    >
+                      <CheckCheck size={15} /> Mark resolved
+                    </button>
+                  )}
+                </article>
+              );
+            })}
+          </div>
+        )}
+      </section>
+
       <section className="dashboard-panel dashboard-events">
         <div className="dashboard-panel-heading">
           <div>
@@ -711,9 +878,14 @@ export default function OrganizerDashboard({
           <div className="dashboard-event-list">
             {events.map((event) => {
               const isPast = new Date(event.ends_at || event.starts_at) < new Date();
+              const cancelled = Boolean(event.is_cancelled);
               const going = event.active_rsvps_count || 0;
+              const openReports = event.open_reports_count || 0;
               return (
-                <article className="dashboard-event" key={event.id}>
+                <article
+                  className={`dashboard-event${cancelled ? " is-cancelled" : ""}`}
+                  key={event.id}
+                >
                   <div className="dashboard-event-main">
                     {event.poster_url ? (
                       <img src={event.poster_url} alt="" />
@@ -723,13 +895,30 @@ export default function OrganizerDashboard({
                       </div>
                     )}
                     <div className="dashboard-event-details">
-                      <span className={`dashboard-event-status ${isPast ? "past" : ""}`}>
-                        {isPast ? "Past event" : "Upcoming"}
+                      <span
+                        className={`dashboard-event-status${cancelled ? " cancelled" : isPast ? " past" : ""}`}
+                      >
+                        {cancelled ? "Cancelled" : isPast ? "Past event" : "Upcoming"}
                       </span>
                       <h3>{event.title}</h3>
                       <p>{event.venue} · {new Date(event.starts_at).toLocaleString()}</p>
-                      <small>{going} going RSVP{going === 1 ? "" : "s"} / {event.capacity} seats</small>
-                      {!isPast && event.check_in_code && (
+                      <small>
+                        {going} going RSVP{going === 1 ? "" : "s"} / {event.capacity} seats ·{" "}
+                        {event.views_count ?? 0} view{(event.views_count ?? 0) === 1 ? "" : "s"}
+                        {openReports > 0
+                          ? ` · ${openReports} open report${openReports === 1 ? "" : "s"}`
+                          : ""}
+                      </small>
+                      {cancelled && (
+                        <small className="dashboard-event-cancelled">
+                          Cancelled{" "}
+                          {event.cancelled_at
+                            ? new Date(event.cancelled_at).toLocaleString()
+                            : ""}
+                          {event.cancellation_reason ? ` · ${event.cancellation_reason}` : ""}
+                        </small>
+                      )}
+                      {!isPast && !cancelled && event.check_in_code && (
                         <div className="dashboard-check-in">
                           <span>
                             <KeyRound size={13} /> Door code
@@ -749,9 +938,39 @@ export default function OrganizerDashboard({
                       <Users size={15} />
                       {attendees[event.id] ? "Hide attendees" : "View attendees"}
                     </button>
-                    <button className="btn btn-outline" onClick={() => startEdit(event)}>
-                      <Pencil size={15} /> Edit
+                    <button
+                      className="btn btn-outline"
+                      onClick={() => printAttendees(event)}
+                      disabled={busy === `print-${event.id}`}
+                    >
+                      <Printer size={15} /> Print RSVP sheet
                     </button>
+                    <button className="btn btn-outline" onClick={() => printPoster(event)}>
+                      <Printer size={15} /> Print poster
+                    </button>
+                    {!cancelled && (
+                      <button className="btn btn-outline" onClick={() => startEdit(event)}>
+                        <Pencil size={15} /> Edit
+                      </button>
+                    )}
+                    {!cancelled && !isPast && (
+                      <button
+                        className="btn btn-outline dashboard-warning"
+                        onClick={() => cancelEvent(event)}
+                        disabled={busy === `cancel-${event.id}`}
+                      >
+                        <Ban size={15} /> Cancel event
+                      </button>
+                    )}
+                    {cancelled && (
+                      <button
+                        className="btn btn-outline"
+                        onClick={() => restoreEvent(event)}
+                        disabled={busy === `restore-${event.id}`}
+                      >
+                        <RotateCcw size={15} /> Reactivate
+                      </button>
+                    )}
                     <button
                       className="btn btn-outline dashboard-delete"
                       onClick={() => deleteEvent(event)}
@@ -779,6 +998,13 @@ export default function OrganizerDashboard({
                               onClick={() => downloadAttendees(event.id, event.title)}
                             >
                               <Download size={15} /> Download CSV
+                            </button>
+                            <button
+                              className="btn btn-outline"
+                              onClick={() => printAttendees(event)}
+                              disabled={busy === `print-${event.id}`}
+                            >
+                              <Printer size={15} /> Print RSVP sheet
                             </button>
                           </div>
                           <div className="dashboard-attendee-list">

@@ -273,3 +273,37 @@
 .organizer-line-btn:hover {
   text-decoration: underline;
 }
+
+/* Cancelled events */
+.event-card.is-cancelled {
+  border-color: #e8c9c3;
+}
+
+.event-card.is-cancelled .poster {
+  filter: grayscale(0.55) saturate(0.7);
+}
+
+.cancelled-badge {
+  position: absolute;
+  right: 14px;
+  bottom: 14px;
+  padding: 6px 12px;
+  border-radius: 999px;
+  background: #7b2016;
+  color: #fff;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.cancelled-notice {
+  margin: 10px 0;
+  padding: 10px 12px;
+  border: 1px solid #e8c9c3;
+  border-radius: 12px;
+  background: #fdf1ef;
+  color: #8a2a1c;
+  font-size: 13px;
+  font-weight: 600;
+}
