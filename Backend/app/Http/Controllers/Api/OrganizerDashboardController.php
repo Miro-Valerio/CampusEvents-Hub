@@ -8,7 +8,9 @@ use App\Http\Requests\OrganizerPhotoRequest;
 use App\Http\Requests\OrganizerProfileRequest;
 use App\Models\Event;
 use App\Models\EventPhoto;
+use App\Models\EventReport;
 use App\Models\Rsvp;
+use App\Notifications\EventCancelled;
 use App\Notifications\EventTimeChanged;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\JsonResponse;
@@ -24,6 +26,7 @@ class OrganizerDashboardController extends Controller
             ->withCount([
                 'rsvps as active_rsvps_count' => fn (Builder $query) => $query->where('status', Rsvp::STATUS_GOING),
                 'rsvps as checked_in_count' => fn (Builder $query) => $query->whereNotNull('checked_in_at'),
+                'reports as open_reports_count' => fn (Builder $query) => $query->where('status', EventReport::STATUS_OPEN),
             ])
             ->with('photos')
             ->orderByDesc('starts_at')
@@ -47,6 +50,10 @@ class OrganizerDashboardController extends Controller
     public function update(OrganizerEventRequest $request, Event $event): JsonResponse
     {
         Gate::authorize('update', $event);
+
+        if ($event->status === Event::STATUS_CANCELLED) {
+            return response()->json(['message' => 'Reactivate this event before editing it.'], 422);
+        }
 
         $previousStartsAt = $event->starts_at?->copy();
         $previousEndsAt = $event->ends_at?->copy();
@@ -73,6 +80,74 @@ class OrganizerDashboardController extends Controller
         return response()->json($event->loadCount([
             'rsvps as active_rsvps_count' => fn (Builder $query) => $query->where('status', Rsvp::STATUS_GOING),
         ]));
+    }
+
+    public function cancel(Request $request, Event $event): JsonResponse
+    {
+        Gate::authorize('update', $event);
+
+        $data = $request->validate(['reason' => ['nullable', 'string', 'max:1000']]);
+
+        if ($event->status === Event::STATUS_CANCELLED) {
+            return response()->json([
+                'message' => 'This event is already cancelled.',
+                'event' => $this->eventPayload($event),
+            ]);
+        }
+
+        $event->update([
+            'status' => Event::STATUS_CANCELLED,
+            'cancelled_at' => now(),
+            'cancellation_reason' => $data['reason'] ?? null,
+        ]);
+
+        $event->rsvps()
+            ->where('status', Rsvp::STATUS_GOING)
+            ->update(['reminder_sent_at' => null]);
+
+        $event->loadMissing('organizer');
+        $reason = $event->cancellation_reason;
+
+        $event->rsvps()
+            ->with('user')
+            ->where('status', Rsvp::STATUS_GOING)
+            ->chunkById(100, function ($rsvps) use ($event, $reason): void {
+                foreach ($rsvps as $rsvp) {
+                    $rsvp->user?->notify(new EventCancelled($event, $reason));
+                }
+            });
+
+        return response()->json([
+            'message' => 'Event cancelled. Everyone who RSVPed has been notified.',
+            'event' => $this->eventPayload($event->fresh()),
+        ]);
+    }
+
+    public function restore(Event $event): JsonResponse
+    {
+        Gate::authorize('update', $event);
+
+        $event->update([
+            'status' => Event::STATUS_PUBLISHED,
+            'cancelled_at' => null,
+            'cancellation_reason' => null,
+        ]);
+
+        return response()->json([
+            'message' => 'Event reactivated.',
+            'event' => $this->eventPayload($event->fresh()),
+        ]);
+    }
+
+    private function eventPayload(Event $event): Event
+    {
+        return $event
+            ->makeVisible('check_in_code')
+            ->loadCount([
+                'rsvps as active_rsvps_count' => fn (Builder $query) => $query->where('status', Rsvp::STATUS_GOING),
+                'rsvps as checked_in_count' => fn (Builder $query) => $query->whereNotNull('checked_in_at'),
+                'reports as open_reports_count' => fn (Builder $query) => $query->where('status', EventReport::STATUS_OPEN),
+            ]);
     }
 
     public function destroy(Event $event): JsonResponse
@@ -131,9 +206,18 @@ class OrganizerDashboardController extends Controller
         return response()->json([
             'total_events' => $organizer->events()->count(),
             'upcoming_events' => $organizer->events()
+                ->where('status', Event::STATUS_PUBLISHED)
                 ->whereRaw('COALESCE(ends_at, starts_at) >= ?', [now()])
                 ->count(),
+            'cancelled_events' => $organizer->events()
+                ->where('status', Event::STATUS_CANCELLED)
+                ->count(),
             'total_rsvps' => $rsvpCount,
+            'total_views' => (int) $organizer->events()->sum('views_count'),
+            'open_reports' => EventReport::query()
+                ->whereIn('event_id', $eventIds)
+                ->where('status', EventReport::STATUS_OPEN)
+                ->count(),
             'total_check_ins' => Rsvp::query()
                 ->whereIn('event_id', $eventIds)
                 ->whereNotNull('checked_in_at')

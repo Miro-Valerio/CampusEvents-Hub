@@ -14,12 +14,23 @@ use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
 use Laravel\Sanctum\HasApiTokens;
 
-#[Fillable(['name', 'email', 'password', 'course'])]
+#[Fillable(['name', 'email', 'password', 'course', 'photo_url', 'notification_preferences'])]
 #[Hidden(['password', 'remember_token'])]
 class User extends Authenticatable
 {
     /** @use HasFactory<UserFactory> */
     use HasApiTokens, HasFactory, Notifiable;
+
+    /**
+     * Default notification channels. All start enabled.
+     *
+     * @var array<string, bool>
+     */
+    public const DEFAULT_NOTIFICATION_PREFERENCES = [
+        'announcements' => true,
+        'event_updates' => true,
+        'event_reminders' => true,
+    ];
 
     /**
      * Get the attributes that should be cast.
@@ -31,7 +42,27 @@ class User extends Authenticatable
         return [
             'email_verified_at' => 'datetime',
             'password' => 'hashed',
+            'notification_preferences' => 'array',
         ];
+    }
+
+    /**
+     * @return array<string, bool>
+     */
+    public function notificationPreferences(): array
+    {
+        return array_merge(
+            self::DEFAULT_NOTIFICATION_PREFERENCES,
+            array_intersect_key(
+                $this->notification_preferences ?? [],
+                self::DEFAULT_NOTIFICATION_PREFERENCES,
+            ),
+        );
+    }
+
+    public function wantsNotification(string $key): bool
+    {
+        return (bool) ($this->notificationPreferences()[$key] ?? true);
     }
 
     public function savedEvents(): BelongsToMany
@@ -67,5 +98,10 @@ class User extends Authenticatable
     public function announcementReactions(): HasMany
     {
         return $this->hasMany(AnnouncementReaction::class);
+    }
+
+    public function eventReports(): HasMany
+    {
+        return $this->hasMany(EventReport::class);
     }
 }

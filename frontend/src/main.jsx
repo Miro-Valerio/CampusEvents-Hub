@@ -21,7 +21,10 @@ import EventPage from "./components/EventPage";
 import OrganizerDashboard from "./components/OrganizerDashboard";
 import OrganizerPage from "./components/OrganizerPage";
 import OrganizersView from "./components/OrganizersView";
+import ProfileView from "./components/ProfileView";
+import ReportEventModal from "./components/ReportEventModal";
 import SeatConfirmationModal from "./components/SeatConfirmationModal";
+import SettingsView from "./components/SettingsView";
 import { downloadIcs } from "./utils/ics";
 import "./css/base.css";
 import "./css/header.css";
@@ -38,6 +41,7 @@ import "./css/event-page.css";
 import "./css/check-in.css";
 import "./css/calendar.css";
 import "./css/archive.css";
+import "./css/account.css";
 import "./css/footer.css";
 import "./css/responsive.css";
 
@@ -100,6 +104,9 @@ function App() {
   const [notificationsUnread, setNotificationsUnread] = useState(0);
   const [notificationsOpen, setNotificationsOpen] = useState(false);
   const [notificationsLoading, setNotificationsLoading] = useState(false);
+
+  // The listing a student is reporting.
+  const [reportEvent, setReportEvent] = useState(null);
 
   // Auth dialog and page-level feedback.
   const [authOpen, setAuthOpen] = useState(false);
@@ -166,7 +173,7 @@ function App() {
   const refreshSelectedEvent = async () => {
     if (!selected?.id) return;
     try {
-      const { data } = await http.get(`/events/${selected.id}`);
+      const { data } = await http.get(`/events/${selected.id}`, { params: { track: 0 } });
       setSelected(data);
     } catch {
       // Keep the currently displayed event if the silent refresh fails.
@@ -322,6 +329,7 @@ function App() {
     setSelected(null);
     setOrganizerPage(null);
     setNotificationsOpen(false);
+    setReportEvent(null);
     setView(target);
     window.scrollTo({ top: 0 });
     if (target === "discover") loadEvents(1);
@@ -350,7 +358,7 @@ function App() {
   };
   const openEventById = async (id) => {
     try {
-      const { data } = await http.get(`/events/${id}`);
+      const { data } = await http.get(`/events/${id}`, { params: { track: 0 } });
       openEvent(data);
     } catch {
       showError("Could not open that event. Please try again.", () => openEventById(id));
@@ -381,6 +389,7 @@ function App() {
       setUser(data.user);
       setView(data.user?.role === "organizer" ? "dashboard" : "discover");
       setSelected(null);
+      setReportEvent(null);
       setAuthOpen(false);
       setNotice(`Welcome${data.user?.name ? `, ${data.user.name}` : ""}!`);
       await Promise.all([loadMyLists(), loadNotifications(), loadAnnouncements()]);
@@ -418,6 +427,7 @@ function App() {
       setCheckInHistory([]);
       setView("discover");
       setSelected(null);
+      setReportEvent(null);
       setNotifications([]);
       setNotificationsUnread(0);
       setNotificationsOpen(false);
@@ -614,6 +624,29 @@ function App() {
     }
   };
 
+  const openReport = (event) => {
+    if (!isLoggedIn()) {
+      return requireLogin("Please log in to report a listing.");
+    }
+    clearError();
+    setNotice("");
+    setReportEvent(event);
+  };
+
+  const submitReport = async ({ reason, details }) => {
+    if (!reportEvent) return;
+    const { data } = await http.post(`/events/${reportEvent.id}/report`, {
+      reason,
+      details,
+    });
+    setReportEvent(null);
+    setNotice(data.message || "Thanks — your report was sent to the organizer.");
+  };
+
+  const changeProfile = (nextUser) => {
+    setUser((current) => (current ? { ...current, ...nextUser } : nextUser));
+  };
+
   // Props shared by every EventCard.
   const cardProps = (event) => ({
     prettyDate,
@@ -627,6 +660,7 @@ function App() {
     onCalendar: toggleCalendar,
     onOpen: openEvent,
     onOrganizer: openOrganizer,
+    onReport: openReport,
   });
 
   return (
@@ -818,6 +852,7 @@ function App() {
             onSave={toggleSave}
             onCalendar={toggleCalendar}
             onOrganizer={openOrganizer}
+            onReport={openReport}
             prettyDate={prettyDate}
             canRsvp={user?.role !== "organizer"}
           />
@@ -851,6 +886,17 @@ function App() {
             onNotice={setNotice}
             onEventsChanged={() => loadEvents(1, true)}
           />
+        )}
+        {view === "profile" && user && (
+          <ProfileView
+            http={http}
+            user={user}
+            onSaved={changeProfile}
+            onNotice={setNotice}
+          />
+        )}
+        {view === "settings" && user && (
+          <SettingsView http={http} onNotice={setNotice} />
         )}
         {view === "my-rsvps" && (
           <EventListView
@@ -960,6 +1006,13 @@ function App() {
         confirmation={seatConfirmation}
         onClose={() => setSeatConfirmation(null)}
       />
+      {reportEvent && (
+        <ReportEventModal
+          event={reportEvent}
+          onClose={() => setReportEvent(null)}
+          onSubmit={submitReport}
+        />
+      )}
     </div>
   );
 }

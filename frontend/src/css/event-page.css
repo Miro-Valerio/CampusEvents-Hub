@@ -87,3 +87,39 @@
   border-radius: 12px;
   display: block;
 }
+
+/* Cancelled event */
+.event-cancelled-banner {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  margin-bottom: 16px;
+  padding: 15px 18px;
+  border: 1px solid #e8c9c3;
+  border-radius: 16px;
+  background: #fdf1ef;
+  color: #8a2a1c;
+}
+
+.event-cancelled-banner svg {
+  flex: 0 0 auto;
+  margin-top: 2px;
+}
+
+.event-cancelled-banner b {
+  display: block;
+  font-family: "Manrope", sans-serif;
+  font-size: 15px;
+}
+
+.event-cancelled-banner span {
+  display: block;
+  margin-top: 3px;
+  color: #9b3a28;
+  font-size: 13px;
+  line-height: 1.55;
+}
+
+.event-page-side .cancelled-notice {
+  margin: 0;
+}

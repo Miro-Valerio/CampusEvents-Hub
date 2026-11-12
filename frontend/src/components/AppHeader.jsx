@@ -1,6 +1,15 @@
 import React from "react";
-import { CalendarDays, LogIn, LogOut, Loader2 } from "lucide-react";
+import { CalendarDays, LogIn, LogOut, Loader2, Settings } from "lucide-react";
 import NotificationBell from "./NotificationBell";
+
+const initials = (name) =>
+  (name || "?")
+    .split(/\s+/)
+    .filter(Boolean)
+    .map((part) => part[0])
+    .join("")
+    .slice(0, 2)
+    .toUpperCase();
 
 export default function AppHeader({
   user,
@@ -74,8 +83,45 @@ export default function AppHeader({
               onClose={onCloseNotifications}
               onMarkAllRead={onMarkAllNotificationsRead}
               onOpenAnnouncements={onOpenNotifications}
+              onOpenSettings={() => onNavigate("settings", true)}
             />
-            <span className="user-name">Hi, {user.name}</span>
+            <a
+              className={`profile-chip${view === "profile" ? " active" : ""}`}
+              href="#profile"
+              title="View and edit your profile"
+              onClick={(e) => {
+                e.preventDefault();
+                onNavigate("profile", true);
+              }}
+            >
+              <span className="profile-avatar profile-avatar-small" aria-hidden="true">
+                <span>{initials(user.name)}</span>
+                {user.photo_url && (
+                  <img
+                    src={user.photo_url}
+                    alt=""
+                    onError={(e) => {
+                      e.currentTarget.style.display = "none";
+                    }}
+                  />
+                )}
+              </span>
+              <span className="profile-chip-copy">
+                <b>{user.name}</b>
+                <small>
+                  {user.role === "organizer" ? "Organizer" : user.course || "Student"}
+                </small>
+              </span>
+            </a>
+            <button
+              className={`icon-nav-link${view === "settings" ? " active" : ""}`}
+              type="button"
+              onClick={() => onNavigate("settings", true)}
+              title="Notification settings"
+              aria-label="Notification settings"
+            >
+              <Settings size={17} />
+            </button>
             <button
               className="btn btn-outline"
               type="button"

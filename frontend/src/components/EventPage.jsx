@@ -1,16 +1,20 @@
 import React, { useEffect, useState } from "react";
 import {
   ArrowLeft,
+  Ban,
   Bookmark,
   CalendarDays,
   CalendarPlus,
   CheckCircle2,
   Download,
+  Flag,
   KeyRound,
   MapPin,
+  Printer,
   Users,
 } from "lucide-react";
 import { downloadIcs, isPast } from "../utils/ics";
+import { printEventPoster } from "../utils/print";
 
 export default function EventPage({
   event,
@@ -26,6 +30,7 @@ export default function EventPage({
   onSave,
   onCalendar,
   onOrganizer,
+  onReport,
   prettyDate,
   canRsvp = true,
 }) {
@@ -40,7 +45,8 @@ export default function EventPage({
   const [checkInMessage, setCheckInMessage] = useState("");
   const [checkInError, setCheckInError] = useState("");
   const past = isPast(event);
-  const isFull = !isRsvped && event.registered_count >= event.capacity;
+  const cancelled = Boolean(event.is_cancelled);
+  const isFull = !cancelled && !isRsvped && event.registered_count >= event.capacity;
 
   // Refresh the "who else is going" list whenever the seat count changes.
   useEffect(() => {
@@ -60,8 +66,8 @@ export default function EventPage({
     setCheckInError("");
     setCheckInCode("");
 
-    if (!isRsvped || typeof loadCheckInStatus !== "function") {
-      setCheckInStatus({ loading: false, checkedInAt: null, open: !past });
+    if (!isRsvped || cancelled || typeof loadCheckInStatus !== "function") {
+      setCheckInStatus({ loading: false, checkedInAt: null, open: !past && !cancelled });
       return undefined;
     }
 
@@ -82,7 +88,7 @@ export default function EventPage({
     return () => {
       alive = false;
     };
-  }, [event.id, isRsvped, past]);
+  }, [event.id, isRsvped, past, cancelled]);
 
   const submitCheckIn = async (submit) => {
     submit.preventDefault();
@@ -123,6 +129,19 @@ export default function EventPage({
       <button className="back-link" onClick={onBack}>
         <ArrowLeft size={16} /> Back
       </button>
+      {cancelled && (
+        <div className="event-cancelled-banner" role="status">
+          <Ban size={20} />
+          <div>
+            <b>This event was cancelled</b>
+            <span>
+              {event.cancellation_reason ||
+                "The organizer cancelled this event. RSVPs and check-in are closed."}
+              {event.cancelled_at ? ` · ${prettyDate(event.cancelled_at)}` : ""}
+            </span>
+          </div>
+        </div>
+      )}
       <div
         className="event-hero"
         style={{
@@ -182,7 +201,11 @@ export default function EventPage({
         </div>
 
         <aside className="event-page-side">
-          {past ? (
+          {cancelled ? (
+            <div className="full-notice cancelled-notice">
+              <b>Event cancelled.</b> New RSVPs and door check-in are closed.
+            </div>
+          ) : past ? (
             <div className="full-notice">This event has ended.</div>
           ) : (
             <>
@@ -248,21 +271,32 @@ export default function EventPage({
                   )}
                 </div>
               )}
-              <button className="btn btn-outline full-btn" onClick={() => onSave(event)}>
-                <Bookmark size={16} fill={isSaved ? "currentColor" : "none"} />
-                {isSaved ? "Bookmarked" : "Bookmark this event"}
-              </button>
-              <button className="btn btn-outline full-btn" onClick={() => onCalendar(event)}>
-                <CalendarPlus size={16} />
-                {inCalendar ? "In my calendar list" : "Add to my calendar list"}
-              </button>
-              <button
-                className="btn btn-outline full-btn"
-                onClick={() => downloadIcs([event], `${event.title}.ics`)}
-              >
-                <Download size={16} /> Download .ics
-              </button>
             </>
+          )}
+          <button className="btn btn-outline full-btn" onClick={() => onSave(event)}>
+            <Bookmark size={16} fill={isSaved ? "currentColor" : "none"} />
+            {isSaved ? "Bookmarked" : "Bookmark this event"}
+          </button>
+          <button className="btn btn-outline full-btn" onClick={() => onCalendar(event)}>
+            <CalendarPlus size={16} />
+            {inCalendar ? "In my calendar list" : "Add to my calendar list"}
+          </button>
+          <button
+            className="btn btn-outline full-btn"
+            onClick={() => downloadIcs([event], `${event.title}.ics`)}
+          >
+            <Download size={16} /> Download .ics
+          </button>
+          <button
+            className="btn btn-outline full-btn"
+            onClick={() => printEventPoster(event, prettyDate)}
+          >
+            <Printer size={16} /> Print event poster
+          </button>
+          {onReport && (
+            <button className="btn btn-outline full-btn" onClick={() => onReport(event)}>
+              <Flag size={16} /> Report this listing
+            </button>
           )}
           <button className="organizer-link modal-org" onClick={() => onOrganizer(event.organizer_id)}>
             View organizer: {event.organizer?.name}

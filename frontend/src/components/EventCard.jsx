@@ -4,6 +4,7 @@ import {
   Bookmark,
   CalendarDays,
   CalendarPlus,
+  Flag,
   Images,
   MapPin,
   Users,
@@ -22,17 +23,19 @@ export default function EventCard({
   onCalendar,
   onOpen,
   onOrganizer,
+  onReport,
   myRsvp = false,
   canRsvp = true,
 }) {
   const past = isPast(event);
-  const isFull = !isRsvped && event.registered_count >= event.capacity;
+  const cancelled = Boolean(event.is_cancelled);
+  const isFull = !cancelled && !isRsvped && event.registered_count >= event.capacity;
   const poster = event.poster_url
     ? `linear-gradient(180deg, transparent 30%, rgba(11,28,55,.72)), url('${event.poster_url}')`
     : "linear-gradient(135deg, #123c76, #2f6fb5)";
 
   return (
-    <article className="event-card">
+    <article className={`event-card${cancelled ? " is-cancelled" : ""}`}>
       <div className="poster" style={{ backgroundImage: poster }}>
         <span className="category-tag">{event.category}</span>
         {!myRsvp && !past && (
@@ -53,6 +56,16 @@ export default function EventCard({
             >
               <CalendarPlus size={17} />
             </button>
+            {onReport && (
+              <button
+                className="save-btn"
+                title="Report this listing"
+                aria-label={`Report ${event.title}`}
+                onClick={() => onReport(event)}
+              >
+                <Flag size={16} />
+              </button>
+            )}
           </div>
         )}
         <span className="poster-date">
@@ -62,7 +75,11 @@ export default function EventCard({
             day: "numeric",
           })}
         </span>
-        {isFull && !past && <span className="full-badge">Full</span>}
+        {cancelled ? (
+          <span className="cancelled-badge">Cancelled</span>
+        ) : (
+          isFull && !past && <span className="full-badge">Full</span>
+        )}
       </div>
       <div className="event-card-body">
         <button
@@ -102,7 +119,12 @@ export default function EventCard({
             />
           </div>
         </div>
-        {isFull && !past && (
+        {cancelled && (
+          <div className="cancelled-notice" role="status">
+            This event was cancelled by the organizer.
+          </div>
+        )}
+        {isFull && !past && !cancelled && (
           <div className="full-notice" role="status">
             This event is full — no seats left.
           </div>
@@ -118,7 +140,7 @@ export default function EventCard({
             </>
           )}
         </button>
-        {!past && canRsvp && (
+        {!past && !cancelled && canRsvp && (
           <button
             className={`btn ${myRsvp || isRsvped ? "btn-outline" : "btn-primary"} full-btn rsvp-button`}
             disabled={isBusy || isFull}

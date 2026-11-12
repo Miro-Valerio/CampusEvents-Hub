@@ -136,8 +136,13 @@ class EventController extends Controller
         return $parts[0].' '.mb_strtoupper(mb_substr(end($parts), 0, 1)).'.';
     }
 
-    public function show(Event $event): JsonResponse
+    public function show(Request $request, Event $event): JsonResponse
     {
+        // Silent refreshes pass track=0 so they do not inflate the view counter.
+        if ($request->boolean('track', true)) {
+            $event->increment('views_count');
+        }
+
         return response()->json($event
             ->load(['organizer', 'photos'])
             ->loadCount(['rsvps as active_rsvps_count' => fn (Builder $query) => $query->where('status', Rsvp::STATUS_GOING)]));
@@ -159,6 +164,10 @@ class EventController extends Controller
 
     public function storeRsvp(Request $request, Event $event): JsonResponse
     {
+        if ($event->status === Event::STATUS_CANCELLED) {
+            return response()->json(['message' => 'This event has been cancelled.'], 422);
+        }
+
         if (($event->ends_at ?? $event->starts_at)->isPast()) {
             return response()->json(['message' => 'This event has already ended.'], 422);
         }
@@ -295,6 +304,7 @@ class EventController extends Controller
             'rsvped' => (bool) $rsvp,
             'checked_in_at' => $rsvp?->checked_in_at,
             'check_in_open' => ! ($event->ends_at ?? $event->starts_at)->isPast(),
+            'cancelled' => $event->status === Event::STATUS_CANCELLED,
         ]);
     }
 
@@ -303,6 +313,10 @@ class EventController extends Controller
         $data = $request->validate([
             'code' => ['required', 'string', 'max:12'],
         ]);
+
+        if ($event->status === Event::STATUS_CANCELLED) {
+            return response()->json(['message' => 'This event has been cancelled.'], 422);
+        }
 
         if (($event->ends_at ?? $event->starts_at)->isPast()) {
             return response()->json(['message' => 'This event has already ended.'], 422);

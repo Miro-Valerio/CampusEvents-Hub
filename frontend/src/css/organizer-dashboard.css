@@ -36,7 +36,7 @@
 
 .dashboard-stats {
   display: grid;
-  grid-template-columns: repeat(5, minmax(0, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
   gap: 16px;
   margin-bottom: 22px;
 }
@@ -309,6 +309,9 @@
 }
 
 .dashboard-attendee-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
   margin-bottom: 10px;
 }
 
@@ -428,6 +431,106 @@
   gap: 8px;
 }
 
+/* Cancelled events */
+.dashboard-event.is-cancelled {
+  border-color: #e8c9c3;
+  background: #fdf7f5;
+}
+
+.dashboard-event-status.cancelled {
+  color: #8a2a1c;
+}
+
+.dashboard-event-cancelled {
+  overflow: visible !important;
+  color: #8a2a1c !important;
+  white-space: normal !important;
+}
+
+.dashboard-warning {
+  color: #8a2a1c;
+  border-color: #e8c3c3;
+}
+
+.dashboard-warning:hover {
+  background: #fdf1ef;
+}
+
+/* Reported listings */
+.dashboard-reports {
+  margin-top: 22px;
+}
+
+.dashboard-report-list {
+  display: grid;
+  gap: 12px;
+}
+
+.dashboard-report {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 15px 16px;
+  border: 1px solid var(--border);
+  border-radius: 14px;
+}
+
+.dashboard-report.resolved {
+  opacity: 0.72;
+}
+
+.dashboard-report-main {
+  min-width: 0;
+}
+
+.dashboard-report-main h3 {
+  margin: 7px 0 5px;
+  color: var(--text);
+  font-size: 15px;
+}
+
+.dashboard-report-main p {
+  margin: 0 0 5px;
+  color: var(--muted-2);
+  font-size: 13px;
+  line-height: 1.55;
+  overflow-wrap: anywhere;
+}
+
+.dashboard-report-main small {
+  color: var(--muted);
+  font-size: 11.5px;
+  overflow-wrap: anywhere;
+}
+
+.dashboard-report-status {
+  display: inline-flex;
+  align-items: center;
+  padding: 3px 9px;
+  border-radius: 999px;
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+}
+
+.dashboard-report-status.open {
+  background: #fdecea;
+  color: #a32929;
+}
+
+.dashboard-report-status.resolved {
+  background: #eef9f1;
+  color: #24734a;
+}
+
+.dashboard-report > .btn {
+  flex: 0 0 auto;
+  padding: 9px 12px;
+  font-size: 12px;
+}
+
 @media (max-width: 900px) {
   .dashboard-stats {
     grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -504,5 +607,14 @@
   .dashboard-attendee-list > div {
     flex-direction: column;
     gap: 4px;
+  }
+
+  .dashboard-report {
+    flex-direction: column;
+  }
+
+  .dashboard-report > .btn {
+    width: 100%;
+    justify-content: center;
   }
 }

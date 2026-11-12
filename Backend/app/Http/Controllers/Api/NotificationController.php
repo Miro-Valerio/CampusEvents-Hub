@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
+use App\Http\Requests\NotificationPreferencesRequest;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 
@@ -26,6 +27,27 @@ class NotificationController extends Controller
         return response()->json([
             'data' => $notifications,
             'unread_count' => $user->unreadNotifications()->count(),
+        ]);
+    }
+
+    public function preferences(Request $request): JsonResponse
+    {
+        return response()->json(['data' => $request->user()->notificationPreferences()]);
+    }
+
+    public function updatePreferences(NotificationPreferencesRequest $request): JsonResponse
+    {
+        $user = $request->user();
+        $preferences = array_merge(
+            $user->notificationPreferences(),
+            $request->validated(),
+        );
+
+        $user->update(['notification_preferences' => $preferences]);
+
+        return response()->json([
+            'data' => $user->fresh()->notificationPreferences(),
+            'message' => 'Notification settings saved.',
         ]);
     }
 
