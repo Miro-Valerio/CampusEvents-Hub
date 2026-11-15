@@ -14,6 +14,7 @@ class OrganizerController extends Controller
     {
         $organizers = Organizer::query()
             ->where('is_active', true)
+            ->where('is_listed', true)
             ->withCount(['events as upcoming_events_count' => fn (Builder $q) => $q
                 ->where('is_cancelled', false)
                 ->whereRaw('COALESCE(ends_at, starts_at) >= ?', [now()])])
@@ -25,7 +26,7 @@ class OrganizerController extends Controller
 
     public function show(Organizer $organizer): JsonResponse
     {
-        abort_unless($organizer->is_active, 404);
+        abort_unless($organizer->is_active && $organizer->is_listed, 404);
         $going = fn (Builder $q) => $q->where('status', Rsvp::STATUS_GOING);
 
         $organizer->load([

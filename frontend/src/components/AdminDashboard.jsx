@@ -51,6 +51,7 @@ const DEFAULT_ORGANIZATION_FORM = {
   logo_url: "",
   department_id: "",
   is_active: true,
+  is_listed: true,
   member_ids: [],
 };
 const DEFAULT_ANNOUNCEMENT_FORM = {
@@ -342,6 +343,7 @@ export default function AdminDashboard({ http, onNotice }) {
       logo_url: organization.logo_url || "",
       department_id: String(organization.department_id || ""),
       is_active: organization.is_active,
+      is_listed: organization.is_listed,
       member_ids: (organization.members || []).map((member) => member.id),
     });
     setEditingOrganizationId(organization.id);
@@ -627,12 +629,13 @@ export default function AdminDashboard({ http, onNotice }) {
                 <Field label="Department"><select required value={organizationForm.department_id} onChange={(e) => setOrganizationForm({ ...organizationForm, department_id: e.target.value, member_ids: [] })}><option value="">Choose department</option>{departments.filter((d) => d.is_active).map((d) => <option key={d.id} value={d.id}>{d.name} ({d.code})</option>)}</select></Field>
                 <Field label="Logo URL (optional)"><input type="url" value={organizationForm.logo_url} onChange={(e) => setOrganizationForm({ ...organizationForm, logo_url: e.target.value })} /></Field>
                 <Field label="Status"><select value={organizationForm.is_active ? "true" : "false"} onChange={(e) => setOrganizationForm({ ...organizationForm, is_active: e.target.value === "true" })}><option value="true">Active</option><option value="false">Inactive</option></select></Field>
+                <Field label="Public department listing"><select value={organizationForm.is_listed ? "true" : "false"} onChange={(e) => setOrganizationForm({ ...organizationForm, is_listed: e.target.value === "true" })}><option value="true">Visible</option><option value="false">Hidden</option></select></Field>
                 <Field label="Description"><textarea rows={3} maxLength={5000} value={organizationForm.description} onChange={(e) => setOrganizationForm({ ...organizationForm, description: e.target.value })} /></Field>
                 <Field label="Officers and faculty"><select multiple value={organizationForm.member_ids.map(String)} onChange={(e) => setOrganizationForm({ ...organizationForm, member_ids: [...e.target.selectedOptions].map((o) => Number(o.value)) })}>{memberChoices.filter((m) => String(m.department) === String(departments.find((d) => String(d.id) === String(organizationForm.department_id))?.code)).map((member) => <option key={member.id} value={member.id}>{member.name} · {member.role}</option>)}</select><small>Use Ctrl or Cmd to select more than one person.</small></Field>
               </div>
               <div className="admin-actions"><button className="btn btn-primary" disabled={busy}><Save size={15} />{editingOrganizationId ? "Save organization" : "Create organization"}</button>{editingOrganizationId && <button type="button" className="btn btn-outline" onClick={() => { setEditingOrganizationId(null); setOrganizationForm(DEFAULT_ORGANIZATION_FORM); }}>Cancel</button>}</div>
             </form>
-            <div className="admin-card-grid">{organizations.map((org) => <article className="dashboard-panel admin-entity-card" key={org.id}><div className="admin-entity-heading"><div><h2>{org.name}</h2><p>{org.department?.name || "Department not assigned"}</p></div><span className={`admin-status ${org.is_active ? "active" : "inactive"}`}>{org.is_active ? "Active" : "Inactive"}</span></div><p>{org.description || "No description."}</p><small>{org.events_count} events · {org.members_count} members: {org.members?.map((m) => m.name).join(", ") || "none"}</small><div className="admin-actions"><button className="btn btn-outline" onClick={() => editOrganization(org)}><Pencil size={14} /> Edit</button><button className="btn btn-outline danger" onClick={() => deleteOrganization(org)}><Trash2 size={14} /> Delete</button></div></article>)}</div>
+            <div className="admin-card-grid">{organizations.map((org) => <article className="dashboard-panel admin-entity-card" key={org.id}><div className="admin-entity-heading"><div><h2>{org.name}</h2><p>{org.department?.name || "Department not assigned"}</p></div><span className={`admin-status ${org.is_active && org.is_listed ? "active" : "inactive"}`}>{!org.is_active ? "Inactive" : org.is_listed ? "Visible" : "Hidden"}</span></div><p>{org.description || "No description."}</p><small>{org.events_count} events · {org.members_count} members: {org.members?.map((m) => m.name).join(", ") || "none"}</small><div className="admin-actions"><button className="btn btn-outline" onClick={() => editOrganization(org)}><Pencil size={14} /> Edit</button><button className="btn btn-outline danger" onClick={() => deleteOrganization(org)}><Trash2 size={14} /> Delete</button></div></article>)}</div>
           </>
         )}
 

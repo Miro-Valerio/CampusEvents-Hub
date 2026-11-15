@@ -43,7 +43,7 @@ class DatabaseSeeder extends Seeder
         );
         $itOrganization = Organizer::updateOrCreate(
             ['name' => 'IT Student Organization'],
-            ['description' => 'Technology talks, workshops, and student-led events.'],
+            ['description' => 'Technology talks, workshops, and student-led events.', 'is_listed' => false],
         );
         $collegeOrganizers = [
             [
@@ -117,7 +117,7 @@ class DatabaseSeeder extends Seeder
         );
         $arts = Organizer::updateOrCreate(
             ['name' => 'Arts & Culture Guild'],
-            ['description' => 'Music, theater, and visual arts showcases by SPC students.'],
+            ['description' => 'Music, theater, and visual arts showcases by SPC students.', 'is_listed' => false],
         );
 
         $events = [

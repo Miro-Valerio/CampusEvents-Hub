@@ -44,6 +44,7 @@ class AdminOrganizationController extends Controller
                 'logo_url' => $data['logo_url'] ?? null,
                 'department_id' => $data['department_id'],
                 'is_active' => $data['is_active'] ?? true,
+                'is_listed' => $data['is_listed'] ?? true,
             ]);
             $this->syncMembers($organization, $members);
 
@@ -67,7 +68,7 @@ class AdminOrganizationController extends Controller
     {
         $data = $this->validated($request, $organizer);
         abort_unless(DB::table('departments')->where('id', $data['department_id'])->where('is_active', true)->exists(), 422, 'Select an active department.');
-        $before = $organizer->only(['name', 'description', 'logo_url', 'department_id', 'is_active']);
+        $before = $organizer->only(['name', 'description', 'logo_url', 'department_id', 'is_active', 'is_listed']);
         if ((int) $organizer->department_id !== (int) $data['department_id']
             && ! array_key_exists('member_ids', $data)
             && $organizer->members()->exists()) {
@@ -81,6 +82,7 @@ class AdminOrganizationController extends Controller
                 'logo_url' => $data['logo_url'] ?? null,
                 'department_id' => $data['department_id'],
                 'is_active' => $data['is_active'] ?? $organizer->is_active,
+                'is_listed' => $data['is_listed'] ?? $organizer->is_listed,
             ]);
             if (array_key_exists('member_ids', $data)) {
                 $this->syncMembers($organizer, $members);
@@ -118,6 +120,7 @@ class AdminOrganizationController extends Controller
             'logo_url' => ['nullable', 'url', 'max:2048'],
             'department_id' => ['required', 'exists:departments,id'],
             'is_active' => ['sometimes', 'boolean'],
+            'is_listed' => ['sometimes', 'boolean'],
             'member_ids' => ['sometimes', 'array', 'max:100'],
             'member_ids.*' => ['integer', 'distinct', 'exists:users,id'],
         ]);

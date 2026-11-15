@@ -16,11 +16,11 @@ class Organizer extends Model
 
     protected $hidden = ['user_id'];
 
-    protected $fillable = ['name', 'description', 'logo_url', 'department_id', 'is_active'];
+    protected $fillable = ['name', 'description', 'logo_url', 'department_id', 'is_active', 'is_listed'];
 
     protected function casts(): array
     {
-        return ['is_active' => 'boolean'];
+        return ['is_active' => 'boolean', 'is_listed' => 'boolean'];
     }
 
     public function events(): HasMany

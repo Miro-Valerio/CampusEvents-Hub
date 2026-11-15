@@ -839,7 +839,17 @@ class CampusEventsApiTest extends TestCase
 
         $this->getJson('/api/organizers')
             ->assertOk()
-            ->assertJsonCount(9, 'data');
+            ->assertJsonCount(7, 'data')
+            ->assertJsonMissing(['name' => 'IT Student Organization'])
+            ->assertJsonMissing(['name' => 'Arts & Culture Guild']);
+
+        $itOrganization = Organizer::where('name', 'IT Student Organization')->firstOrFail();
+        $this->getJson("/api/organizers/{$itOrganization->id}")
+            ->assertNotFound();
+
+        $this->getJson('/api/events')
+            ->assertOk()
+            ->assertJsonFragment(['title' => 'Web Development Workshop']);
 
         $organizer = Organizer::where('name', 'SPC Student Affairs')->firstOrFail();
         $this->getJson("/api/organizers/{$organizer->id}")
