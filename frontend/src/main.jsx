@@ -26,7 +26,6 @@ import OrganizerDashboard from "./components/OrganizerDashboard";
 import OrganizerPage from "./components/OrganizerPage";
 import OrganizersView from "./components/OrganizersView";
 import SeatConfirmationModal from "./components/SeatConfirmationModal";
-import UserDashboard from "./components/UserDashboard";
 import UserSettingsView from "./components/UserSettingsView";
 import { downloadIcs } from "./utils/ics";
 import "./css/base.css";
@@ -44,7 +43,6 @@ import "./css/event-page.css";
 import "./css/calendar.css";
 import "./css/archive.css";
 import "./css/settings.css";
-import "./css/user-dashboard.css";
 import "./css/footer.css";
 import "./css/responsive.css";
 
@@ -111,13 +109,15 @@ const userHomeView = (account) => {
   ) {
     return "dashboard";
   }
-  return "user-dashboard";
+  return "discover";
 };
 
 function App() {
   // Which page is showing, plus the event / organizer being viewed.
   const invitationToken = new URLSearchParams(window.location.hash.split("?")[1] || "").get("token");
-  const [view, setView] = useState(invitationToken ? "setup-account" : "discover");
+  const [view, setView] = useState(() =>
+    invitationToken ? "setup-account" : userHomeView(readCachedUser()),
+  );
   const [selected, setSelected] = useState(null);
   const [organizerPage, setOrganizerPage] = useState(null);
   const [backView, setBackView] = useState("discover");
@@ -379,13 +379,6 @@ function App() {
 
   // ---------- navigation ----------
   const go = (target, needsLogin = false) => {
-    if (target === "discover" && user?.role === "admin") {
-      target = "admin-dashboard";
-    } else if (target === "discover" && ["organizer", "faculty"].includes(user?.role)) {
-      target = userHomeView(user);
-    } else if (target === "discover" && user) {
-      target = "user-dashboard";
-    }
     if (target === "dashboard" && (
       !["organizer", "faculty"].includes(user?.role)
       || (!user?.organizer && !user?.organizations?.length)
@@ -393,9 +386,6 @@ function App() {
       target = "discover";
     }
     if (target === "admin-dashboard" && user?.role !== "admin") {
-      target = "discover";
-    }
-    if (target === "user-dashboard" && !user) {
       target = "discover";
     }
     if (needsLogin && !isLoggedIn()) return requireLogin("Log in to see this page.");
@@ -420,15 +410,6 @@ function App() {
     }
     if (view === "admin-dashboard" && user && user.role !== "admin") {
       setView(userHomeView(user));
-    }
-    if (view === "user-dashboard" && user?.role === "admin") {
-      setView(userHomeView(user));
-    }
-    if (view === "user-dashboard" && ["organizer", "faculty"].includes(user?.role)) {
-      setView(userHomeView(user));
-    }
-    if (view === "user-dashboard" && !user && !authChecking) {
-      setView("discover");
     }
   }, [view, user, authChecking]);
   const openEvent = async (event) => {
@@ -780,7 +761,7 @@ function App() {
         onOpenNotifications={openNotification}
       />
       <main id="top">
-        {view === "discover" && (
+        {view === "discover" && !user && (
           <section className="hero">
             <div className="hero-copy">
               <div className="eyebrow">
@@ -841,6 +822,19 @@ function App() {
                 </div>
               </div>
               <div className="tiny-pill">✦ Made for SPC students</div>
+            </div>
+          </section>
+        )}
+        {view === "discover" && user && (
+          <section className="student-discover-intro">
+            <div className="eyebrow">YOUR SPC, YOUR NEXT MOMENT</div>
+            <h1>
+              Find what’s <span>happening, {user.name?.split(" ")[0] || "there"}.</span>
+            </h1>
+            <p>Explore upcoming events, find your community, and make campus life yours.</p>
+            <div className="student-discover-meta">
+              <span>{pagination.total ?? events.length} events to explore</span>
+              <span>{organizers.length} departments</span>
             </div>
           </section>
         )}
@@ -939,15 +933,6 @@ function App() {
         )}
         {view === "organizers" && (
           <OrganizersView organizers={organizers} loading={organizersLoading} onOpen={openOrganizer} />
-        )}
-        {view === "user-dashboard" && user && (
-          <UserDashboard
-            user={user}
-            rsvpCount={myRsvps.length}
-            savedCount={saved.length}
-            calendarCount={calendarList.length}
-            onNavigate={go}
-          />
         )}
         {view === "organizer" && organizerPage && (
           <OrganizerPage
@@ -1078,7 +1063,7 @@ function App() {
           />
         )}
 
-        {view === "discover" && (
+        {view === "discover" && !user && (
           <section className="bottom-cta" id="about">
             <div className="cta-icon">
               <CalendarDays size={25} />

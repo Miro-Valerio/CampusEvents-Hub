@@ -66,6 +66,11 @@ export default function AppHeader({
   );
   const hasOrganizerDashboard = ["organizer", "faculty"].includes(user?.role)
     && (user?.organizer || user?.organizations?.length);
+  const homeView = user?.role === "admin"
+    ? "admin-dashboard"
+    : hasOrganizerDashboard
+      ? "dashboard"
+      : "discover";
   return (
     <header className="topbar">
       <a
@@ -73,7 +78,7 @@ export default function AppHeader({
         href="#top"
         onClick={(e) => {
           e.preventDefault();
-          onNavigate("discover");
+          onNavigate(homeView);
         }}
       >
         <span className="brand-icon">
@@ -87,7 +92,6 @@ export default function AppHeader({
       <nav>
         {user?.role === "admin" && link("admin-dashboard", "Admin Dashboard", true)}
         {hasOrganizerDashboard && link("dashboard", "Organizer Dashboard", true)}
-        {user && user.role !== "admin" && !hasOrganizerDashboard && link("user-dashboard", "My Dashboard", true)}
         {link("discover", "Discover")}
         {link("announcements", "Announcements")}
         {link("organizers", "Department")}
@@ -150,7 +154,6 @@ export default function AppHeader({
                   </a>
                 )}
                 {hasOrganizerDashboard && menuLink("dashboard", "Organizer Dashboard")}
-                {user.role !== "admin" && !hasOrganizerDashboard && menuLink("user-dashboard", "My Dashboard")}
                 {user.role === "student" && (
                   <>
                     {menuLink("my-rsvps", "My RSVPs")}

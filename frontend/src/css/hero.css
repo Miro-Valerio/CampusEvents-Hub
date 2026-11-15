@@ -243,3 +243,56 @@
   color: #fff;
   font-size: 11px;
 }
+
+.student-discover-intro {
+  position: relative;
+  overflow: hidden;
+  width: min(1200px, 89%);
+  margin: 32px auto 0;
+  padding: clamp(26px, 4vw, 42px);
+  border: 1px solid #e8beb2;
+  border-radius: 22px;
+  background:
+    radial-gradient(circle at 90% 15%, rgba(196, 90, 64, 0.14), transparent 28%),
+    linear-gradient(120deg, #fff0e9, #fffaf7 65%, #fff);
+}
+
+.student-discover-intro .eyebrow {
+  color: #9a5142;
+}
+
+.student-discover-intro h1 {
+  margin: 11px 0 8px;
+  font-family: "Manrope", sans-serif;
+  font-size: clamp(30px, 4vw, 44px);
+  line-height: 1.15;
+  letter-spacing: -1.5px;
+  color: var(--text);
+}
+
+.student-discover-intro h1 span {
+  color: var(--red);
+}
+
+.student-discover-intro p {
+  margin: 0;
+  color: var(--muted-2);
+  line-height: 1.7;
+}
+
+.student-discover-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 9px;
+  margin-top: 20px;
+}
+
+.student-discover-meta span {
+  padding: 8px 12px;
+  border: 1px solid rgba(196, 90, 64, 0.2);
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.72);
+  color: #784239;
+  font-size: 12px;
+  font-weight: 700;
+}
