@@ -28,6 +28,7 @@ import OrganizersView from "./components/OrganizersView";
 import SeatConfirmationModal from "./components/SeatConfirmationModal";
 import UserSettingsView from "./components/UserSettingsView";
 import { downloadIcs } from "./utils/ics";
+import { isDesignatedOrganizer } from "./utils/organizerAccess";
 import "./css/base.css";
 import "./css/header.css";
 import "./css/buttons.css";
@@ -101,10 +102,6 @@ http.interceptors.request.use((config) => {
 });
 const prettyDate = (value) =>
   new Date(value).toLocaleString([], { dateStyle: "medium", timeStyle: "short" });
-const isDesignatedOrganizer = (account) =>
-  account?.role === "organizer"
-  && Number(account.department_record?.organizer_user_id) === Number(account.id)
-  && Boolean(account.organizer);
 const userHomeView = (account) => {
   if (account?.role === "admin") return "admin-dashboard";
   if (isDesignatedOrganizer(account)) {

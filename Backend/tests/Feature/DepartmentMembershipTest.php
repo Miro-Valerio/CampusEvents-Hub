@@ -68,6 +68,18 @@ class DepartmentMembershipTest extends TestCase
         $this->assertDatabaseHas('users', ['id' => $student->id, 'department' => $department->code]);
     }
 
+    public function test_user_endpoint_returns_the_designated_department_and_organizer_profile(): void
+    {
+        $department = Department::query()->where('code', 'CCS')->firstOrFail();
+        $organizer = $this->assignOrganizer($department);
+
+        $this->useToken($organizer)
+            ->getJson('/api/user')
+            ->assertOk()
+            ->assertJsonPath('department_record.organizer_user_id', $organizer->id)
+            ->assertJsonPath('organizer.id', $organizer->organizer->id);
+    }
+
     public function test_faculty_can_join_a_department_without_approval(): void
     {
         $department = Department::query()->where('code', 'CCS')->firstOrFail();

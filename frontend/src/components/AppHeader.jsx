@@ -1,6 +1,7 @@
 import React, { useEffect, useRef, useState } from "react";
 import { CalendarDays, LogIn, LogOut, Loader2, Menu, Settings, ShieldCheck, X } from "lucide-react";
 import ADMIN_SECTIONS from "../adminSections";
+import { isDesignatedOrganizer } from "../utils/organizerAccess";
 import NotificationBell from "./NotificationBell";
 
 export default function AppHeader({
@@ -67,8 +68,7 @@ export default function AppHeader({
       {label}
     </a>
   );
-  const hasOrganizerDashboard = ["organizer", "faculty"].includes(user?.role)
-    && (user?.organizer || user?.organizations?.length);
+  const hasOrganizerDashboard = isDesignatedOrganizer(user);
   const homeView = user?.role === "admin"
     ? "admin-dashboard"
     : hasOrganizerDashboard
