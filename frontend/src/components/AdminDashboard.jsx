@@ -100,7 +100,7 @@ function Stat({ label, value, icon: Icon }) {
   );
 }
 
-export default function AdminDashboard({ http, onNotice }) {
+export default function AdminDashboard({ http, user, onNotice }) {
   const [section, setSection] = useState("overview");
   const [loading, setLoading] = useState(false);
   const [busy, setBusy] = useState(false);
@@ -548,8 +548,14 @@ export default function AdminDashboard({ http, onNotice }) {
       <div className="admin-content">
         <header className="admin-page-heading">
           <div>
-            <div className="eyebrow muted">SYSTEM ADMINISTRATION</div>
-            <h1>{heading}<span>.</span></h1>
+            <div className="eyebrow muted">
+              {section === "overview" ? "YOUR ADMIN DASHBOARD" : "SYSTEM ADMINISTRATION"}
+            </div>
+            <h1>
+              {section === "overview" && user?.name
+                ? <>Welcome, <span>{user.name}</span>.</>
+                : <>{heading}<span>.</span></>}
+            </h1>
           </div>
           <button className="btn btn-outline" type="button" onClick={loadSection} disabled={loading}>
             <RefreshCw size={15} /> Refresh

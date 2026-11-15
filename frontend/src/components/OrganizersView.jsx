@@ -6,20 +6,20 @@ export default function OrganizersView({ organizers, loading, onOpen }) {
     <section className="events-section">
       <div className="section-heading">
         <div>
-          <div className="eyebrow muted">WHO’S BEHIND THE EVENTS</div>
+          <div className="eyebrow muted">DEPARTMENTS BEHIND CAMPUS LIFE</div>
           <h2>
-            Event <span>organizers.</span>
+            SPC <span>departments.</span>
           </h2>
-          <p>Browse the groups hosting events around SPC.</p>
+          <p>Explore the departments bringing campus events to life.</p>
         </div>
         <div className="results-count">
           <b>{organizers.length}</b>
-          <span>organizers</span>
+          <span>departments</span>
         </div>
       </div>
       {loading && (
         <div className="loading-line">
-          <span /> Loading organizers...
+          <span /> Loading departments...
         </div>
       )}
       <div className="organizer-grid">

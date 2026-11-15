@@ -71,9 +71,91 @@
 }
 
 .notice {
-  background: #edf8f1;
-  border: 1px solid #cfead9;
+  justify-content: flex-start;
+  padding: 14px 16px;
+  border: 1px solid #cfe7d7;
+  background: linear-gradient(110deg, #f1faf4, #fff 78%);
+  box-shadow: 0 12px 30px rgba(33, 97, 61, 0.08);
   color: #21613d;
+  animation: notice-appear 220ms ease-out both;
+}
+
+.notice-icon {
+  display: grid;
+  flex: 0 0 auto;
+  place-items: center;
+  width: 36px;
+  height: 36px;
+  border-radius: 12px;
+  background: #dff3e6;
+  color: #247044;
+}
+
+.notice-copy {
+  display: grid;
+  flex: 1;
+  gap: 2px;
+}
+
+.notice-copy strong {
+  font-size: 11px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+
+.notice-copy > span {
+  color: #385e47;
+  font-size: 14px;
+  line-height: 1.5;
+}
+
+.notice-info {
+  border-color: #d7e5ef;
+  background: linear-gradient(110deg, #f1f8fc, #fff 78%);
+  box-shadow: 0 12px 30px rgba(49, 91, 124, 0.08);
+  color: #315b7c;
+}
+
+.notice-info .notice-icon {
+  background: #e2f0f8;
+  color: #315b7c;
+}
+
+.notice-info .notice-copy > span {
+  color: #49667c;
+}
+
+.notice button {
+  display: grid;
+  flex: 0 0 auto;
+  place-items: center;
+  width: 34px;
+  height: 34px;
+  border-radius: 10px;
+  color: #52745f;
+}
+
+.notice button:hover {
+  background: rgba(36, 112, 68, 0.08);
+}
+
+.notice-info button {
+  color: #55748b;
+}
+
+.notice-info button:hover {
+  background: rgba(49, 91, 124, 0.08);
+}
+
+@keyframes notice-appear {
+  from {
+    opacity: 0;
+    transform: translateY(-5px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }
 
 .error-banner {

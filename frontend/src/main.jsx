@@ -5,6 +5,8 @@ import {
   ArrowUpRight,
   Bookmark,
   CalendarDays,
+  CheckCircle2,
+  Info,
   RefreshCw,
   Users,
   X,
@@ -24,6 +26,7 @@ import OrganizerDashboard from "./components/OrganizerDashboard";
 import OrganizerPage from "./components/OrganizerPage";
 import OrganizersView from "./components/OrganizersView";
 import SeatConfirmationModal from "./components/SeatConfirmationModal";
+import UserDashboard from "./components/UserDashboard";
 import UserSettingsView from "./components/UserSettingsView";
 import { downloadIcs } from "./utils/ics";
 import "./css/base.css";
@@ -41,6 +44,7 @@ import "./css/event-page.css";
 import "./css/calendar.css";
 import "./css/archive.css";
 import "./css/settings.css";
+import "./css/user-dashboard.css";
 import "./css/footer.css";
 import "./css/responsive.css";
 
@@ -99,6 +103,16 @@ http.interceptors.request.use((config) => {
 });
 const prettyDate = (value) =>
   new Date(value).toLocaleString([], { dateStyle: "medium", timeStyle: "short" });
+const userHomeView = (account) => {
+  if (account?.role === "admin") return "admin-dashboard";
+  if (
+    ["organizer", "faculty"].includes(account?.role)
+    && (account.organizer || account.organizations?.length)
+  ) {
+    return "dashboard";
+  }
+  return "user-dashboard";
+};
 
 function App() {
   // Which page is showing, plus the event / organizer being viewed.
@@ -168,6 +182,7 @@ function App() {
     () => Boolean(localStorage.getItem(tokenKey) && !readCachedUser()),
   );
   const [notice, setNotice] = useState("");
+  const [noticeType, setNoticeType] = useState("success");
   const [error, setError] = useState("");
   const [retryAction, setRetryAction] = useState(null);
   const [authForm, setAuthForm] = useState({
@@ -182,6 +197,10 @@ function App() {
   const showError = (message, retry = null) => {
     setError(message);
     setRetryAction(() => retry);
+  };
+  const showNotice = (message, type = "success") => {
+    setNoticeType(type);
+    setNotice(message);
   };
   const clearError = () => {
     setError("");
@@ -341,8 +360,7 @@ function App() {
         cacheUser(token, data);
         setUser(data);
         setAuthChecking(false);
-        if (["organizer", "faculty"].includes(data?.role) && (data?.organizer || data?.organizations?.length)) setView("dashboard");
-        if (data?.role === "admin") setView("admin-dashboard");
+        setView(userHomeView(data));
         return Promise.all([loadMyLists(), loadNotifications(), loadAnnouncements()]);
       })
       .catch((err) => {
@@ -370,6 +388,9 @@ function App() {
     if (target === "admin-dashboard" && user?.role !== "admin") {
       target = "discover";
     }
+    if (target === "user-dashboard" && !user) {
+      target = "discover";
+    }
     if (needsLogin && !isLoggedIn()) return requireLogin("Log in to see this page.");
     clearError();
     setSelected(null);
@@ -393,7 +414,10 @@ function App() {
     if (view === "admin-dashboard" && user && user.role !== "admin") {
       setView("discover");
     }
-  }, [view, user]);
+    if (view === "user-dashboard" && !user && !authChecking) {
+      setView("discover");
+    }
+  }, [view, user, authChecking]);
   const openEvent = async (event) => {
     setBackView(view === "event" ? backView : view);
     setSelected(event);
@@ -403,7 +427,7 @@ function App() {
       const { data } = await http.get(`/events/${event.id}`);
       setSelected(data);
     } catch {
-      setNotice("Showing event preview. Full details could not be refreshed.");
+      showNotice("Showing event preview. Full details could not be refreshed.", "info");
     }
   };
   const openOrganizer = async (id) => {
@@ -449,15 +473,10 @@ function App() {
       cacheUser(data.token, data.user);
       setUser(data.user);
       setAuthChecking(false);
-      setView(data.user?.role === "admin"
-        ? "admin-dashboard"
-        : ["organizer", "faculty"].includes(data.user?.role)
-          && (data.user?.organizer || data.user?.organizations?.length)
-          ? "dashboard"
-          : "discover");
+      setView(userHomeView(data.user));
       setSelected(null);
       setAuthOpen(false);
-      setNotice(`Welcome${data.user?.name ? `, ${data.user.name}` : ""}!`);
+      showNotice(`Welcome${data.user?.name ? `, ${data.user.name}` : ""}!`);
       await Promise.all([loadMyLists(), loadNotifications(), loadAnnouncements()]);
     } catch (err) {
       showError(
@@ -498,7 +517,7 @@ function App() {
       setNotifications([]);
       setNotificationsUnread(0);
       setNotificationsOpen(false);
-      setNotice("You have logged out.");
+      showNotice("You have logged out.");
       if (logoutError) showError(logoutError);
       setLoggingOut(false);
       loadAnnouncements();
@@ -527,7 +546,7 @@ function App() {
     try {
       const { data } = await http.post(`/events/${event.id}/save`);
       setSaved((cur) => (data.saved ? [...cur, event] : cur.filter((e) => e.id !== event.id)));
-      setNotice(data.message);
+      showNotice(data.message || (data.saved ? "Event saved to your bookmarks." : "Event removed from your bookmarks."));
     } catch {
       showError(
         "Couldn’t save this event. Your changes may not have been saved. Please try again.",
@@ -546,7 +565,7 @@ function App() {
       setCalendarList((cur) =>
         data.in_calendar ? [...cur, event] : cur.filter((e) => e.id !== event.id),
       );
-      setNotice(data.message);
+      showNotice(data.message || (data.in_calendar ? "Event added to your calendar." : "Event removed from your calendar."));
     } catch {
       showError("Couldn’t update your calendar list. Please try again.", () => toggleCalendar(event));
     }
@@ -564,11 +583,11 @@ function App() {
         : await http.post(`/events/${event.id}/rsvp`);
       updateRegisteredCount(event.id, data.registered_count);
       if (data.rsvped) setSeatConfirmation({ event, seatNumber: data.seat_number });
-      else setNotice(data.message);
+      showNotice(data.message || (data.rsvped ? "Your RSVP was confirmed." : "Your RSVP was cancelled."));
       await loadMyLists();
     } catch (err) {
       if (err.response?.status === 409) {
-        setNotice("This event is full. No seats are available.");
+        showNotice("This event is full. No seats are available.", "info");
         updateRegisteredCount(event.id, event.capacity);
       } else
         showError(
@@ -606,6 +625,7 @@ function App() {
         ),
       );
       setUnreadAnnouncements(data.unread_count || 0);
+      showNotice("Your reaction was added.");
     } catch {
       showError("Could not mark that announcement as read. Please try again.");
     } finally {
@@ -701,6 +721,7 @@ function App() {
           read_at: item.read_at || new Date().toISOString(),
         })),
       );
+      showNotice("All notifications marked as read.");
     } catch {
       showError("Could not mark your notifications as read. Please try again.");
     }
@@ -773,7 +794,7 @@ function App() {
                 </div>
                 <div>
                   <b>{organizers.length}</b>
-                  <span>Organizers</span>
+                  <span>Departments</span>
                 </div>
                 <div>
                   <b>100%</b>
@@ -812,8 +833,14 @@ function App() {
         )}
 
         {notice && (
-          <div className="notice" role="status">
-            {notice}
+          <div className={`notice ${noticeType === "info" ? "notice-info" : ""}`} role="status" aria-live="polite">
+            <span className="notice-icon">
+              {noticeType === "info" ? <Info size={20} /> : <CheckCircle2 size={20} />}
+            </span>
+            <span className="notice-copy">
+              <strong>{noticeType === "info" ? "Update" : "Success"}</strong>
+              <span>{notice}</span>
+            </span>
             <button onClick={() => setNotice("")} aria-label="Dismiss">
               <X size={15} />
             </button>
@@ -859,7 +886,7 @@ function App() {
           />
         )}
         {view === "admin-dashboard" && user?.role === "admin" && (
-          <AdminDashboard http={http} onNotice={setNotice} />
+          <AdminDashboard http={http} user={user} onNotice={showNotice} />
         )}
         {view === "setup-account" && (
           <InvitationSetupView
@@ -900,6 +927,15 @@ function App() {
         {view === "organizers" && (
           <OrganizersView organizers={organizers} loading={organizersLoading} onOpen={openOrganizer} />
         )}
+        {view === "user-dashboard" && user && (
+          <UserDashboard
+            user={user}
+            rsvpCount={myRsvps.length}
+            savedCount={saved.length}
+            calendarCount={calendarList.length}
+            onNavigate={go}
+          />
+        )}
         {view === "organizer" && organizerPage && (
           <OrganizerPage
             organizer={organizerPage}
@@ -926,7 +962,7 @@ function App() {
               setAuthOpen(true);
               clearError();
             }}
-            onNotice={setNotice}
+            onNotice={showNotice}
             prettyDate={prettyDate}
             canRsvp={user?.role !== "organizer"}
             canReport={Boolean(user) && user.organizer?.id !== selected.organizer_id}
@@ -951,14 +987,15 @@ function App() {
             onPage={loadArchive}
           />
         )}
-        {view === "dashboard" && user?.role === "organizer" && (
+        {view === "dashboard" && ["organizer", "faculty"].includes(user?.role) && (
           <OrganizerDashboard
             http={http}
+            userName={user.name}
             organizer={user.organizer}
             onProfileChange={(organizer) =>
               setUser((current) => ({ ...current, organizer }))
             }
-            onNotice={setNotice}
+            onNotice={showNotice}
           />
         )}
         {view === "settings" && user && (
@@ -966,7 +1003,7 @@ function App() {
             http={http}
             user={user}
             onUserChange={updateSignedInUser}
-            onNotice={setNotice}
+            onNotice={showNotice}
           />
         )}
         {view === "my-rsvps" && (
@@ -1028,25 +1065,27 @@ function App() {
           />
         )}
 
-        <section className="bottom-cta" id="about">
-          <div className="cta-icon">
-            <CalendarDays size={25} />
-          </div>
-          <div>
-            <h2>There’s more to college than classes.</h2>
-            <p>Show up, get involved, and make your SPC story count.</p>
-          </div>
-          <a
-            href="#events"
-            className="btn btn-light"
-            onClick={(e) => {
-              e.preventDefault();
-              go("discover");
-            }}
-          >
-            Find an event <ArrowUpRight size={16} />
-          </a>
-        </section>
+        {view === "discover" && (
+          <section className="bottom-cta" id="about">
+            <div className="cta-icon">
+              <CalendarDays size={25} />
+            </div>
+            <div>
+              <h2>There’s more to college than classes.</h2>
+              <p>Show up, get involved, and make your SPC story count.</p>
+            </div>
+            <a
+              href="#events"
+              className="btn btn-light"
+              onClick={(e) => {
+                e.preventDefault();
+                go("discover");
+              }}
+            >
+              Find an event <ArrowUpRight size={16} />
+            </a>
+          </section>
+        )}
       </main>
       <footer>
         <span>© 2026 CampusEvents Hub</span>

@@ -64,6 +64,8 @@ export default function AppHeader({
       {label}
     </a>
   );
+  const hasOrganizerDashboard = ["organizer", "faculty"].includes(user?.role)
+    && (user?.organizer || user?.organizations?.length);
   return (
     <header className="topbar">
       <a
@@ -88,8 +90,9 @@ export default function AppHeader({
         {link("organizers", "Department")}
         {link("calendar", "Calendar")}
         {link("archive", "Archive")}
+        {user && user.role !== "admin" && !hasOrganizerDashboard && link("user-dashboard", "My Dashboard", true)}
         {user?.role === "admin" && link("admin-dashboard", "Admin Dashboard", true)}
-        {["organizer", "faculty"].includes(user?.role) && (user?.organizer || user?.organizations?.length) && link("dashboard", "Organizer Dashboard", true)}
+        {hasOrganizerDashboard && link("dashboard", "Organizer Dashboard", true)}
       </nav>
       <div className="account" key={user ? `user-${user.id}` : "guest"}>
         {user ? (
@@ -133,6 +136,7 @@ export default function AppHeader({
             </button>
             {menuOpen && (
               <div className="mobile-navigation-menu" id="mobile-navigation-menu">
+                {user.role !== "admin" && !hasOrganizerDashboard && menuLink("user-dashboard", "My Dashboard")}
                 {user.role === "student" && (
                   <>
                     {menuLink("my-rsvps", "My RSVPs")}
@@ -141,7 +145,7 @@ export default function AppHeader({
                     {menuLink("my-calendar", "My list")}
                   </>
                 )}
-                {["organizer", "faculty"].includes(user.role) && (user.organizer || user.organizations?.length) && menuLink("dashboard", "Organizer Dashboard")}
+                {hasOrganizerDashboard && menuLink("dashboard", "Organizer Dashboard")}
                 {user.role === "admin" && (
                   <a
                     className={view === "admin-dashboard" ? "active" : ""}

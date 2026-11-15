@@ -83,6 +83,7 @@ function readDashboardCache(organizerId) {
 
 export default function OrganizerDashboard({
   http,
+  userName,
   organizer,
   onProfileChange,
   onNotice,
@@ -415,7 +416,7 @@ export default function OrganizerDashboard({
         <div>
           <div className="eyebrow muted">ORGANIZER TOOLS</div>
           <h1>
-            Your event <span>dashboard.</span>
+            Welcome back, <span>{userName}</span>.
           </h1>
           <p>Manage {organizer?.name || "your organization"} events and attendees.</p>
         </div>
