@@ -545,7 +545,7 @@ export default function AdminDashboard({ http, user, onNotice, section, onSectio
           </button>
         </header>
         {error && <div className="dashboard-error" role="alert">{error}</div>}
-        {!loading && section === "overview" && (
+        {section === "overview" && (
           <>
             <div className="dashboard-stats admin-stats-grid">
               <Stat label="Total Students" value={overview.total_students} icon={Users} />
@@ -564,7 +564,7 @@ export default function AdminDashboard({ http, user, onNotice, section, onSectio
           </>
         )}
 
-        {!loading && section === "users" && (
+        {section === "users" && (
           <>
             <div className="admin-toolbar">
               <label className="admin-search"><Search size={16} /><input placeholder="Search name or email" value={userFilters.search} onChange={(e) => setUserFilters((f) => ({ ...f, search: e.target.value }))} /></label>
@@ -607,7 +607,7 @@ export default function AdminDashboard({ http, user, onNotice, section, onSectio
           </>
         )}
 
-        {!loading && section === "organizations" && (
+        {section === "organizations" && (
           <>
             <form className="settings-card admin-form" onSubmit={saveOrganization}>
               <h2>{editingOrganizationId ? "Edit organization" : "Create organization"}</h2>
@@ -626,7 +626,7 @@ export default function AdminDashboard({ http, user, onNotice, section, onSectio
           </>
         )}
 
-        {!loading && section === "departments" && (
+        {section === "departments" && (
           <>
             <form className="settings-card admin-form admin-department-form" onSubmit={saveDepartment}>
               <h2>{editingDepartmentId ? "Edit department" : "Add department"}</h2>
@@ -645,7 +645,7 @@ export default function AdminDashboard({ http, user, onNotice, section, onSectio
           </>
         )}
 
-        {!loading && section === "events" && (
+        {section === "events" && (
           <>
             <div className="admin-toolbar">
               <label className="admin-search"><Search size={16} /><input placeholder="Search events" value={eventFilters.search} onChange={(e) => setEventFilters((f) => ({ ...f, search: e.target.value }))} /></label>
@@ -677,7 +677,7 @@ export default function AdminDashboard({ http, user, onNotice, section, onSectio
           </>
         )}
 
-        {!loading && section === "announcements" && (
+        {section === "announcements" && (
           <>
             <form className="settings-card admin-form" onSubmit={saveAnnouncement}>
               <h2>{editingAnnouncementId ? "Edit announcement" : "Publish announcement"}</h2>
@@ -695,11 +695,11 @@ export default function AdminDashboard({ http, user, onNotice, section, onSectio
           </>
         )}
 
-        {!loading && section === "reports" && (
+        {section === "reports" && (
           <div className="admin-report-list">{reports.map((report) => <article className="dashboard-panel admin-report" key={report.id}><div className="admin-entity-heading"><div><h2>{report.event?.title || "Event removed"}</h2><p>Reported by {report.user?.name || "Unknown"} ({report.user?.email || "—"}) · {formatDate(report.created_at)}</p></div><span className={`admin-status ${report.status === "pending" ? "inactive" : "active"}`}>{report.status}</span></div><p><b>Reason:</b> {report.reason?.replaceAll("_", " ")}. {report.details || "No extra details."}</p><Field label="Investigation / resolution notes"><textarea rows={2} maxLength={2000} value={reportNotes[report.id] ?? report.resolution ?? report.review_notes ?? ""} onChange={(e) => setReportNotes({ ...reportNotes, [report.id]: e.target.value })} /></Field>{report.status === "pending" && <div className="admin-actions"><button className="btn btn-primary" onClick={() => resolveReport(report, "review")}><Check size={14} /> Mark reviewed</button><button className="btn btn-outline" onClick={() => resolveReport(report, "dismiss")}>Dismiss</button><button className="btn btn-outline" onClick={() => resolveReport(report, "unpublish")}>Unpublish event</button><button className="btn btn-outline danger" onClick={() => resolveReport(report, "remove")}>Remove event</button></div>}{report.status !== "pending" && <small>Resolution: {report.resolution || report.review_notes || "—"} · {report.reviewer?.name || "Admin"}</small>}</article>)}{!reports.length && <p className="dashboard-empty">No event reports have been submitted.</p>}</div>
         )}
 
-        {!loading && section === "analytics" && (
+        {section === "analytics" && (
           <>
             <div className="admin-toolbar">
               <Field label="From"><input type="date" value={analyticsFilters.from} onChange={(e) => setAnalyticsFilters({ ...analyticsFilters, from: e.target.value })} /></Field>
@@ -723,7 +723,7 @@ export default function AdminDashboard({ http, user, onNotice, section, onSectio
           </>
         )}
 
-        {!loading && section === "activity" && (
+        {section === "activity" && (
           <>
             <div className="admin-toolbar"><label className="admin-search"><Search size={16} /><input placeholder="Search activity" value={activitySearch} onChange={(e) => setActivitySearch(e.target.value)} /></label></div>
             <div className="admin-table-wrap"><table className="admin-table"><thead><tr><th>Who</th><th>Action</th><th>Affected record</th><th>Details</th><th>Date / time</th></tr></thead><tbody>
@@ -732,7 +732,7 @@ export default function AdminDashboard({ http, user, onNotice, section, onSectio
           </>
         )}
 
-        {!loading && section === "settings" && (
+        {section === "settings" && (
           <>
             <form className="settings-card admin-form admin-settings-form" onSubmit={saveSettings}>
               <h2>System configuration</h2>
