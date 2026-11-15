@@ -2,6 +2,9 @@
    Hero
 ------------------------- */
 .hero {
+  position: relative;
+  isolation: isolate;
+  overflow: hidden;
   display: grid;
   grid-template-columns: 1fr 0.88fr;
   align-items: center;
@@ -10,7 +13,19 @@
   min-height: 500px;
   margin: 0 auto;
   padding: 63px 0 52px;
-  background: radial-gradient(ellipse at 80% 25%, #a83a24 0%, transparent 43%), linear-gradient(115deg, #f5d3c6 0%, #c45a40 42%, #821100 100%);
+  background: #821100;
+}
+
+.hero::before {
+  position: absolute;
+  z-index: -1;
+  inset: -8px;
+  background:
+    linear-gradient(115deg, rgba(74, 0, 0, 0.62), rgba(130, 17, 0, 0.52)),
+    url("/campus-background.jpg") center 52% / cover no-repeat;
+  content: "";
+  filter: blur(3px);
+  transform: scale(1.02);
 }
 
 .hero-copy {
