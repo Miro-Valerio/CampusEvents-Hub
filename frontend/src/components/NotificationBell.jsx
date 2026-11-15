@@ -60,9 +60,7 @@ export default function NotificationBell({
             )}
           </div>
 
-          {loading ? (
-            <div className="notification-empty">Loading notifications...</div>
-          ) : notifications.length === 0 ? (
+          {loading ? null : notifications.length === 0 ? (
             <div className="notification-empty">
               <Bell size={20} />
             <span>You are all caught up.</span>

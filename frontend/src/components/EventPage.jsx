@@ -145,13 +145,11 @@ export default function EventPage({
                   disabled={isBusy || isFull}
                   onClick={() => onRsvp(event)}
                 >
-                  {isBusy
-                    ? "Updating…"
-                    : isRsvped
-                      ? "Cancel RSVP"
-                      : isFull
-                        ? "Event full"
-                        : "RSVP · Going"}
+                  {isRsvped
+                    ? "Cancel RSVP"
+                    : isFull
+                      ? "Event full"
+                      : "RSVP · Going"}
                 </button>
               )}
               <button className="btn btn-outline full-btn" onClick={() => onSave(event)}>
@@ -226,7 +224,7 @@ export default function EventPage({
                 </label>
                 {reportError && <p className="event-report-error" role="alert">{reportError}</p>}
                 <button className="btn btn-primary full-btn" type="submit" disabled={reporting}>
-                  {reporting ? "Submitting..." : "Submit report"}
+                  Submit report
                 </button>
               </form>
             )
@@ -234,9 +232,7 @@ export default function EventPage({
 
           <div className="attendees-box">
             <b>Who’s going</b>
-            {!attendees ? (
-              <small>Loading…</small>
-            ) : attendees.failed ? (
+            {attendees && (attendees.failed ? (
               <small>Couldn’t load the guest list.</small>
             ) : (
               <>
@@ -255,7 +251,7 @@ export default function EventPage({
                 )}
                 {attendees.total === 0 && <small>Be the first to RSVP!</small>}
               </>
-            )}
+            ))}
           </div>
         </aside>
       </div>

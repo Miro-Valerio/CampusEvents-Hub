@@ -1,10 +1,7 @@
 import React from "react";
 import { ArrowUpRight, Users } from "lucide-react";
-import useDelayedLoading from "../utils/useDelayedLoading";
 
-export default function OrganizersView({ organizers, loading, onOpen }) {
-  const showLoading = useDelayedLoading(loading);
-
+export default function OrganizersView({ organizers, onOpen }) {
   return (
     <section className="events-section">
       <div className="section-heading">
@@ -20,11 +17,6 @@ export default function OrganizersView({ organizers, loading, onOpen }) {
           <span>departments</span>
         </div>
       </div>
-      {showLoading && (
-        <div className="loading-line">
-          <span /> Loading departments...
-        </div>
-      )}
       <div className="organizer-grid">
         {organizers.map((org) => (
           <button className="organizer-card" key={org.id} onClick={() => onOpen(org.id)}>

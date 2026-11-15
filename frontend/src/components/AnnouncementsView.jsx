@@ -8,7 +8,6 @@ import {
   Users,
 } from "lucide-react";
 import { COURSES } from "../constants";
-import useDelayedLoading from "../utils/useDelayedLoading";
 
 const DEFAULT_EMOJIS = ["👍", "❤️", "🎉", "👏", "😮", "😂"];
 
@@ -36,7 +35,6 @@ export default function AnnouncementsView({
 }) {
   const reactionEmojis = emojis?.length ? emojis : DEFAULT_EMOJIS;
   const hasFilters = Boolean(course || organizer || search);
-  const showLoading = useDelayedLoading(loading);
 
   return (
     <section className="events-section announcements-section">
@@ -123,11 +121,7 @@ export default function AnnouncementsView({
         )}
       </div>
 
-      {showLoading && announcements.length === 0 ? (
-        <div className="loading-line">
-          <span /> Loading announcements...
-        </div>
-      ) : loading && announcements.length === 0 ? null : announcements.length === 0 ? (
+      {loading && announcements.length === 0 ? null : announcements.length === 0 ? (
         <div className="empty-state">
           <div className="empty-icon">
             <Megaphone size={27} />

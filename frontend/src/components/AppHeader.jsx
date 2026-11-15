@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from "react";
-import { CalendarDays, LogIn, LogOut, Loader2, Menu, Settings, ShieldCheck, X } from "lucide-react";
+import { CalendarDays, LogIn, LogOut, Menu, Settings, ShieldCheck, X } from "lucide-react";
 import ADMIN_SECTIONS from "../adminSections";
 import { isDesignatedOrganizer } from "../utils/organizerAccess";
 import NotificationBell from "./NotificationBell";
@@ -121,9 +121,7 @@ export default function AppHeader({
             <span className="user-name">Hi, {user.name}</span>
           </>
         ) : (
-          authChecking ? (
-            <span className="user-name" role="status">Checking session...</span>
-          ) : (
+          !authChecking && (
             <button className="btn btn-primary" onClick={onLogin}>
               <LogIn size={16} /> Log in
             </button>
@@ -194,12 +192,8 @@ export default function AppHeader({
                   }}
                   disabled={isLoggingOut}
                 >
-                  {isLoggingOut ? (
-                    <Loader2 size={16} className="auth-spinner" aria-hidden="true" />
-                  ) : (
-                    <LogOut size={16} />
-                  )}
-                  {isLoggingOut ? "Logging out..." : "Log out"}
+                  <LogOut size={16} />
+                  Log out
                 </button>
               </div>
             )}

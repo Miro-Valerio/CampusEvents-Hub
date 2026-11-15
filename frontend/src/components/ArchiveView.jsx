@@ -1,11 +1,8 @@
 import React from "react";
 import { Images, Search } from "lucide-react";
 import EventCard from "./EventCard";
-import useDelayedLoading from "../utils/useDelayedLoading";
 
 export default function ArchiveView({ events, pagination, loading, search, setSearch, cardProps, onPage }) {
-  const showLoading = useDelayedLoading(loading);
-
   return (
     <section className="events-section">
       <div className="section-heading">
@@ -31,11 +28,6 @@ export default function ArchiveView({ events, pagination, loading, search, setSe
           />
         </label>
       </div>
-      {showLoading && events.length === 0 && (
-        <div className="loading-line">
-          <span /> Loading archive...
-        </div>
-      )}
       {!loading && events.length === 0 && (
         <div className="empty-state">
           <div className="empty-icon">

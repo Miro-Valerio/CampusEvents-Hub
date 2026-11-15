@@ -204,7 +204,7 @@ export default function UserSettingsView({ http, user, onUserChange, onNotice })
             </>
           )}
           <button className="btn btn-primary" type="submit" disabled={busy === "profile"}>
-            <Save size={15} /> {busy === "profile" ? "Saving..." : "Save profile"}
+            <Save size={15} /> Save profile
           </button>
         </form>
 
@@ -219,14 +219,14 @@ export default function UserSettingsView({ http, user, onUserChange, onNotice })
             <label>
               Department
               <select required value={departmentId} disabled={membershipLoading || busy === "membership"} onChange={(event) => setDepartmentId(event.target.value)}>
-                <option value="">{membershipLoading ? "Loading departments..." : "Select a department"}</option>
+                <option value="">Select a department</option>
                 {(membership?.departments || []).map((department) => (
                   <option key={department.id} value={department.id}>{department.name} ({department.code})</option>
                 ))}
               </select>
             </label>
             <button className="btn btn-primary" type="submit" disabled={membershipLoading || busy === "membership" || !departmentId || (!membership?.pending_request && departmentId === String(membership?.current_department?.id || ""))}>
-              <Save size={15} /> {busy === "membership" ? "Saving..." : user.role === "student" ? "Request to join" : "Join department"}
+              <Save size={15} /> {user.role === "student" ? "Request to join" : "Join department"}
             </button>
           </form>
         )}
@@ -252,7 +252,7 @@ export default function UserSettingsView({ http, user, onUserChange, onNotice })
             </label>
           ))}
           <button className="btn btn-primary" type="submit" disabled={busy === "preferences" || loadingPreferences}>
-            <Save size={15} /> {busy === "preferences" ? "Saving..." : "Save notification settings"}
+            <Save size={15} /> Save notification settings
           </button>
         </form>
 
@@ -294,7 +294,7 @@ export default function UserSettingsView({ http, user, onUserChange, onNotice })
             />
           </label>
           <button className="btn btn-primary" type="submit" disabled={busy === "password"}>
-            <Save size={15} /> {busy === "password" ? "Changing..." : "Change password"}
+            <Save size={15} /> Change password
           </button>
         </form>
       </div>

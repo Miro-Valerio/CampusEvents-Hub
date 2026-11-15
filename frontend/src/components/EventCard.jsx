@@ -144,13 +144,11 @@ export default function EventCard({
             disabled={isBusy || isFull}
             onClick={() => onRsvp(event)}
           >
-            {isBusy
-              ? "Updating…"
-              : isRsvped
-                ? "Cancel RSVP"
-                : isFull
-                  ? "Event full"
-                  : "RSVP · Going"}
+            {isRsvped
+              ? "Cancel RSVP"
+              : isFull
+                ? "Event full"
+                : "RSVP · Going"}
           </button>
         )}
       </div>

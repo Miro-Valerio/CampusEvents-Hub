@@ -19,7 +19,6 @@ import {
 } from "lucide-react";
 import { COURSES } from "../constants";
 import { printRsvpSheet } from "../utils/print";
-import useDelayedLoading from "../utils/useDelayedLoading";
 
 const emptyEvent = () => {
   const start = new Date(Date.now() + 24 * 60 * 60 * 1000);
@@ -100,7 +99,6 @@ export default function OrganizerDashboard({
   const [announcementForm, setAnnouncementForm] = useState(emptyAnnouncement);
   const [stats, setStats] = useState(() => initialDashboard?.stats || null);
   const [loading, setLoading] = useState(() => !initialDashboard);
-  const showLoading = useDelayedLoading(loading);
   const [loadFailed, setLoadFailed] = useState(false);
   const [dashboardError, setDashboardError] = useState(null);
   const [validationMessages, setValidationMessages] = useState([]);
@@ -591,7 +589,7 @@ export default function OrganizerDashboard({
           </div>
           <button className="btn btn-primary" type="submit" disabled={busy === "event"}>
             <Plus size={16} />
-            {busy === "event" ? "Saving event..." : editingId ? "Update event" : "Create event"}
+            {editingId ? "Update event" : "Create event"}
           </button>
         </form>
       </div>
@@ -667,7 +665,7 @@ export default function OrganizerDashboard({
             disabled={busy === "announcement"}
           >
             <Megaphone size={16} />
-            {busy === "announcement" ? "Posting..." : "Post announcement"}
+            Post announcement
           </button>
         </form>
 
@@ -679,9 +677,7 @@ export default function OrganizerDashboard({
             </div>
             <span className="dashboard-count">{announcements.length}</span>
           </div>
-          {showLoading && announcements.length === 0 ? (
-            <div className="loading-line"><span /> Loading announcements...</div>
-          ) : loading && announcements.length === 0 ? null : announcements.length === 0 ? (
+          {loading && announcements.length === 0 ? null : announcements.length === 0 ? (
             <div className="dashboard-empty">
               You haven’t posted any announcements yet.
             </div>
@@ -747,9 +743,7 @@ export default function OrganizerDashboard({
           </div>
           <span className="dashboard-count">{events.length}</span>
         </div>
-        {showLoading && events.length === 0 ? (
-          <div className="loading-line"><span /> Loading organizer events...</div>
-        ) : loading && events.length === 0 ? null : loadFailed ? (
+        {loading && events.length === 0 ? null : loadFailed ? (
           <div className="dashboard-empty">Couldn’t load your events. Use Retry above.</div>
         ) : events.length === 0 ? (
           <div className="dashboard-empty">You haven’t created any events yet.</div>
@@ -837,7 +831,7 @@ export default function OrganizerDashboard({
                               type="submit"
                               disabled={busy === `check-in-${event.id}`}
                             >
-                              {busy === `check-in-${event.id}` ? "Checking in…" : "Check in"}
+                              Check in
                             </button>
                           </form>
                           <div className="dashboard-attendee-actions">

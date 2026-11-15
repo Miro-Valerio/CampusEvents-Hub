@@ -1,7 +1,6 @@
 import React from "react";
 import { Search } from "lucide-react";
 import EventCard from "./EventCard";
-import useDelayedLoading from "../utils/useDelayedLoading";
 
 export default function EventDiscoveryView({
   events,
@@ -22,8 +21,6 @@ export default function EventDiscoveryView({
   onResetFilters,
   onPage,
 }) {
-  const showLoading = useDelayedLoading(loading);
-
   return (
     <section className="events-section" id="events">
       <div className="section-heading">
@@ -99,11 +96,6 @@ export default function EventDiscoveryView({
           Clear
         </button>
       </div>
-      {showLoading && events.length === 0 && (
-        <div className="loading-line">
-          <span /> Finding campus moments...
-        </div>
-      )}
       {!loading && events.length === 0 && (
         <div className="empty-state">
           <div className="empty-icon">

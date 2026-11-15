@@ -76,7 +76,7 @@ export default function AuthModal({
                 onChange={(event) => onFormChange("department", event.target.value)}
                 disabled={isSubmitting || departmentsLoading}
               >
-                <option value="">{departmentsLoading ? "Loading departments..." : "Select your department"}</option>
+                <option value="">Select your department</option>
                 {departments.map((department) => (
                   <option key={department.id} value={department.code}>
                     {department.name} ({department.code})
@@ -142,18 +142,14 @@ export default function AuthModal({
             className="btn btn-primary full-btn"
             type="submit"
             disabled={isSubmitting}
-            aria-busy={isSubmitting}
+            aria-busy={mode === "login" && isSubmitting}
           >
-            {isSubmitting && (
+            {mode === "login" && isSubmitting && (
               <Loader2 size={16} className="auth-spinner" aria-hidden="true" />
             )}
-            {isSubmitting
-              ? mode === "login"
-                ? "Logging in..."
-                : "Creating account..."
-              : mode === "login"
-                ? "Log in"
-                : "Create account"}
+            {mode === "login"
+              ? isSubmitting ? "Logging in..." : "Log in"
+              : "Create account"}
           </button>
         </form>
         <div className="auth-switch">

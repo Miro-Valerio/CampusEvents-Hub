@@ -517,7 +517,7 @@ export default function AdminDashboard({ http, user, onNotice, section, onSectio
                   {userForm.role === "student" && <Field label="Course (optional)"><input value={userForm.course} onChange={(e) => setUserForm({ ...userForm, course: e.target.value })} /></Field>}
                   {userForm.role === "organizer" && <p className="admin-form-hint">After account setup, assign this organizer to the department in Colleges / Departments.</p>}
                 </div>
-                <div className="admin-actions"><button className="btn btn-primary" disabled={busy}><Save size={15} />{busy ? "Saving..." : editingUserId ? "Save changes" : "Send invitation"}</button><button type="button" className="btn btn-outline" onClick={() => setUserFormOpen(false)}>Cancel</button></div>
+                <div className="admin-actions"><button className="btn btn-primary" disabled={busy}><Save size={15} />{editingUserId ? "Save changes" : "Send invitation"}</button><button type="button" className="btn btn-outline" onClick={() => setUserFormOpen(false)}>Cancel</button></div>
               </form>
             )}
             <div className="admin-table-wrap"><table className="admin-table"><thead><tr><th>User</th><th>Role</th><th>Department</th><th>Status</th><th>Actions</th></tr></thead><tbody>

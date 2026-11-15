@@ -136,9 +136,6 @@ function App() {
   const [organizers, setOrganizers] = useState(
     () => readCache(`${publicCachePrefix}organizers`) || [],
   );
-  const [organizersLoading, setOrganizersLoading] = useState(
-    () => !readCache(`${publicCachePrefix}organizers`),
-  );
   const [loading, setLoading] = useState(false);
 
   // Archive (past events).
@@ -277,16 +274,12 @@ function App() {
     }
   };
   const loadOrganizers = async () => {
-    const hasCachedOrganizers = Boolean(readCache(`${publicCachePrefix}organizers`));
-    setOrganizersLoading(!hasCachedOrganizers);
     try {
       const { data } = await http.get("/organizers");
       setOrganizers(data.data || []);
       writeCache(`${publicCachePrefix}organizers`, data.data || []);
     } catch {
       showError("Could not load organizers. Please retry.", loadOrganizers);
-    } finally {
-      setOrganizersLoading(false);
     }
   };
   const loadArchive = async (page = 1) => {
@@ -974,7 +967,7 @@ function App() {
           />
         )}
         {view === "organizers" && (
-          <OrganizersView organizers={organizers} loading={organizersLoading} onOpen={openOrganizer} />
+          <OrganizersView organizers={organizers} onOpen={openOrganizer} />
         )}
         {view === "organizer" && organizerPage && (
           <OrganizerPage
