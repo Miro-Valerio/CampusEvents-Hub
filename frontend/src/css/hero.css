@@ -246,19 +246,30 @@
 
 .student-discover-intro {
   position: relative;
+  isolation: isolate;
   overflow: hidden;
   width: min(1200px, 89%);
   margin: 32px auto 0;
   padding: clamp(26px, 4vw, 42px);
-  border: 1px solid #e8beb2;
+  border: 1px solid rgba(255, 255, 255, 0.26);
   border-radius: 22px;
+  background: #821100;
+}
+
+.student-discover-intro::before {
+  position: absolute;
+  z-index: -1;
+  inset: -8px;
   background:
-    radial-gradient(circle at 90% 15%, rgba(196, 90, 64, 0.14), transparent 28%),
-    linear-gradient(120deg, #fff0e9, #fffaf7 65%, #fff);
+    linear-gradient(115deg, rgba(74, 0, 0, 0.7), rgba(130, 17, 0, 0.56)),
+    url("/campus-background.jpg") center 52% / cover no-repeat;
+  content: "";
+  filter: blur(3px);
+  transform: scale(1.02);
 }
 
 .student-discover-intro .eyebrow {
-  color: #9a5142;
+  color: rgba(255, 255, 255, 0.82);
 }
 
 .student-discover-intro h1 {
@@ -267,16 +278,16 @@
   font-size: clamp(30px, 4vw, 44px);
   line-height: 1.15;
   letter-spacing: -1.5px;
-  color: var(--text);
+  color: #fffaf9;
 }
 
 .student-discover-intro h1 span {
-  color: var(--red);
+  color: #fff0e9;
 }
 
 .student-discover-intro p {
   margin: 0;
-  color: var(--muted-2);
+  color: rgba(255, 255, 255, 0.88);
   line-height: 1.7;
 }
 
@@ -289,10 +300,10 @@
 
 .student-discover-meta span {
   padding: 8px 12px;
-  border: 1px solid rgba(196, 90, 64, 0.2);
+  border: 1px solid rgba(255, 255, 255, 0.28);
   border-radius: 999px;
-  background: rgba(255, 255, 255, 0.72);
-  color: #784239;
+  background: rgba(255, 255, 255, 0.12);
+  color: #fffaf9;
   font-size: 12px;
   font-weight: 700;
 }

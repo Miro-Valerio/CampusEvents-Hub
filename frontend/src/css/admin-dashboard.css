@@ -556,21 +556,6 @@
   }
 
   .admin-sidebar {
-    position: static;
-    overflow: auto;
-    padding: 10px;
-  }
-
-  .admin-sidebar nav {
-    display: flex;
-    width: max-content;
-  }
-
-  .admin-sidebar nav button {
-    min-width: 145px;
-  }
-
-  .admin-sidebar-note {
     display: none;
   }
 

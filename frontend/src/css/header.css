@@ -148,6 +148,29 @@
   box-shadow: 0 12px 30px rgba(74, 22, 13, 0.16);
 }
 
+.mobile-admin-navigation {
+  padding-bottom: 8px;
+  border-bottom: 1px solid var(--border);
+}
+
+.mobile-menu-section-title {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  min-height: 42px;
+  padding: 10px 12px;
+  color: var(--red);
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 1.1px;
+}
+
+.mobile-admin-note {
+  padding: 8px 12px 4px;
+  color: var(--muted);
+  font-size: 11px;
+}
+
 .mobile-navigation-menu a,
 .mobile-navigation-menu button {
   display: flex;

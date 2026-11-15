@@ -378,6 +378,9 @@
     white-space: nowrap;
     scrollbar-width: thin;
   }
+  .topbar nav .admin-top-nav-link {
+    display: none;
+  }
   .topbar-logout { display: none; }
   .cal-cell { min-height: 64px; padding: 4px; }
   .cal-chip { font-size: 9px; padding: 2px 3px; }

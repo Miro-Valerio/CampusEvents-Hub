@@ -1,21 +1,17 @@
 import React, { useCallback, useEffect, useState } from "react";
 import {
-  BarChart3,
   Building2,
   CalendarDays,
   Check,
   ClipboardList,
   Eye,
-  Flag,
   Landmark,
-  LayoutDashboard,
   Megaphone,
   Pencil,
   Plus,
   RefreshCw,
   Save,
   Search,
-  Settings,
   ShieldCheck,
   Trash2,
   UserPlus,
@@ -23,20 +19,7 @@ import {
   X,
 } from "lucide-react";
 import "../css/admin-dashboard.css";
-import useDelayedLoading from "../utils/useDelayedLoading";
-
-const SECTIONS = [
-  ["overview", "Dashboard", LayoutDashboard],
-  ["users", "User Management", Users],
-  ["organizations", "Organizations", Building2],
-  ["departments", "Colleges / Departments", Landmark],
-  ["events", "Event Management", CalendarDays],
-  ["announcements", "Announcements", Megaphone],
-  ["reports", "Reported Events", Flag],
-  ["analytics", "Reports & Analytics", BarChart3],
-  ["activity", "Activity Log", ClipboardList],
-  ["settings", "Settings", Settings],
-];
+import ADMIN_SECTIONS from "../adminSections";
 
 const DEFAULT_USER_FORM = {
   name: "",
@@ -101,10 +84,8 @@ function Stat({ label, value, icon: Icon }) {
   );
 }
 
-export default function AdminDashboard({ http, user, onNotice }) {
-  const [section, setSection] = useState("overview");
+export default function AdminDashboard({ http, user, onNotice, section, onSectionChange }) {
   const [loading, setLoading] = useState(false);
-  const showLoading = useDelayedLoading(loading);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const [overview, setOverview] = useState({});
@@ -525,19 +506,19 @@ export default function AdminDashboard({ http, user, onNotice }) {
     }
   };
 
-  const heading = SECTIONS.find(([key]) => key === section)?.[1] || "Dashboard";
+  const heading = ADMIN_SECTIONS.find(([key]) => key === section)?.[1] || "Dashboard";
 
   return (
     <section className="admin-shell">
       <aside className="admin-sidebar">
         <div className="admin-sidebar-title"><ShieldCheck size={20} /><span>ADMINISTRATION</span></div>
         <nav aria-label="Admin dashboard navigation">
-          {SECTIONS.map(([key, label, Icon]) => (
+          {ADMIN_SECTIONS.map(([key, label, Icon]) => (
             <button
               type="button"
               key={key}
               className={section === key ? "active" : ""}
-              onClick={() => setSection(key)}
+              onClick={() => onSectionChange(key)}
             >
               <Icon size={17} /> <span>{label}</span>
               {key === "reports" && overview.pending_reports > 0 && <b>{overview.pending_reports}</b>}
@@ -564,8 +545,6 @@ export default function AdminDashboard({ http, user, onNotice }) {
           </button>
         </header>
         {error && <div className="dashboard-error" role="alert">{error}</div>}
-        {showLoading && <div className="loading-line"><span /> Loading {heading.toLowerCase()}...</div>}
-
         {!loading && section === "overview" && (
           <>
             <div className="dashboard-stats admin-stats-grid">

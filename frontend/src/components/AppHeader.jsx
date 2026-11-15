@@ -1,5 +1,6 @@
 import React, { useEffect, useRef, useState } from "react";
 import { CalendarDays, LogIn, LogOut, Loader2, Menu, Settings, ShieldCheck, X } from "lucide-react";
+import ADMIN_SECTIONS from "../adminSections";
 import NotificationBell from "./NotificationBell";
 
 export default function AppHeader({
@@ -19,6 +20,8 @@ export default function AppHeader({
   onCloseNotifications,
   onMarkAllNotificationsRead,
   onOpenNotifications,
+  adminSection,
+  onAdminSectionChange,
 }) {
   const [menuOpen, setMenuOpen] = useState(false);
   const menuRef = useRef(null);
@@ -39,9 +42,9 @@ export default function AppHeader({
     };
   }, [menuOpen]);
 
-  const link = (target, label, requiresLogin = false) => (
+  const link = (target, label, requiresLogin = false, extraClass = "") => (
     <a
-      className={view === target ? "active" : ""}
+      className={`${view === target ? "active " : ""}${extraClass}`.trim()}
       href={`#${target}`}
       onClick={(e) => {
         e.preventDefault();
@@ -90,7 +93,7 @@ export default function AppHeader({
         </span>
       </a>
       <nav>
-        {user?.role === "admin" && link("admin-dashboard", "Admin Dashboard", true)}
+        {user?.role === "admin" && link("admin-dashboard", "Admin Dashboard", true, "admin-top-nav-link")}
         {hasOrganizerDashboard && link("dashboard", "Organizer Dashboard", true)}
         {link("discover", "Discover")}
         {link("announcements", "Announcements")}
@@ -141,17 +144,27 @@ export default function AppHeader({
             {menuOpen && (
               <div className="mobile-navigation-menu" id="mobile-navigation-menu">
                 {user.role === "admin" && (
-                  <a
-                    className={view === "admin-dashboard" ? "active" : ""}
-                    href="#admin-dashboard"
-                    onClick={(event) => {
-                      event.preventDefault();
-                      setMenuOpen(false);
-                      onNavigate("admin-dashboard", true);
-                    }}
-                  >
-                    <ShieldCheck size={16} /> Admin Dashboard
-                  </a>
+                  <div className="mobile-admin-navigation">
+                    <div className="mobile-menu-section-title">
+                      <ShieldCheck size={16} /> ADMINISTRATION
+                    </div>
+                    {ADMIN_SECTIONS.map(([key, label, Icon]) => (
+                      <a
+                        key={key}
+                        className={view === "admin-dashboard" && adminSection === key ? "active" : ""}
+                        href={`#admin-${key}`}
+                        onClick={(event) => {
+                          event.preventDefault();
+                          setMenuOpen(false);
+                          onAdminSectionChange(key);
+                          onNavigate("admin-dashboard", true);
+                        }}
+                      >
+                        <Icon size={16} /> {label}
+                      </a>
+                    ))}
+                    <div className="mobile-admin-note">Administrator access is logged.</div>
+                  </div>
                 )}
                 {hasOrganizerDashboard && menuLink("dashboard", "Organizer Dashboard")}
                 {user.role === "student" && (

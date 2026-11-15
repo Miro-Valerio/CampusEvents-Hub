@@ -28,7 +28,6 @@ import OrganizersView from "./components/OrganizersView";
 import SeatConfirmationModal from "./components/SeatConfirmationModal";
 import UserSettingsView from "./components/UserSettingsView";
 import { downloadIcs } from "./utils/ics";
-import useDelayedLoading from "./utils/useDelayedLoading";
 import "./css/base.css";
 import "./css/header.css";
 import "./css/buttons.css";
@@ -119,6 +118,7 @@ function App() {
   const [view, setView] = useState(() =>
     invitationToken ? "setup-account" : userHomeView(readCachedUser()),
   );
+  const [adminSection, setAdminSection] = useState("overview");
   const [selected, setSelected] = useState(null);
   const [organizerPage, setOrganizerPage] = useState(null);
   const [backView, setBackView] = useState("discover");
@@ -776,6 +776,8 @@ function App() {
         onCloseNotifications={() => setNotificationsOpen(false)}
         onMarkAllNotificationsRead={markAllNotificationsRead}
         onOpenNotifications={openNotification}
+        adminSection={adminSection}
+        onAdminSectionChange={setAdminSection}
       />
       <main id="top">
         {view === "discover" && !user && (
@@ -910,7 +912,13 @@ function App() {
           />
         )}
         {view === "admin-dashboard" && user?.role === "admin" && (
-          <AdminDashboard http={http} user={user} onNotice={showNotice} />
+          <AdminDashboard
+            http={http}
+            user={user}
+            onNotice={showNotice}
+            section={adminSection}
+            onSectionChange={setAdminSection}
+          />
         )}
         {view === "setup-account" && (
           <InvitationSetupView
