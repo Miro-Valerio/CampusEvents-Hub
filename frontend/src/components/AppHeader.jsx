@@ -85,14 +85,14 @@ export default function AppHeader({
         </span>
       </a>
       <nav>
+        {user?.role === "admin" && link("admin-dashboard", "Admin Dashboard", true)}
+        {hasOrganizerDashboard && link("dashboard", "Organizer Dashboard", true)}
+        {user && user.role !== "admin" && !hasOrganizerDashboard && link("user-dashboard", "My Dashboard", true)}
         {link("discover", "Discover")}
         {link("announcements", "Announcements")}
         {link("organizers", "Department")}
         {link("calendar", "Calendar")}
         {link("archive", "Archive")}
-        {user && user.role !== "admin" && !hasOrganizerDashboard && link("user-dashboard", "My Dashboard", true)}
-        {user?.role === "admin" && link("admin-dashboard", "Admin Dashboard", true)}
-        {hasOrganizerDashboard && link("dashboard", "Organizer Dashboard", true)}
       </nav>
       <div className="account" key={user ? `user-${user.id}` : "guest"}>
         {user ? (
@@ -136,16 +136,6 @@ export default function AppHeader({
             </button>
             {menuOpen && (
               <div className="mobile-navigation-menu" id="mobile-navigation-menu">
-                {user.role !== "admin" && !hasOrganizerDashboard && menuLink("user-dashboard", "My Dashboard")}
-                {user.role === "student" && (
-                  <>
-                    {menuLink("my-rsvps", "My RSVPs")}
-                    {menuLink("check-in-history", "Check-in history")}
-                    {menuLink("saved", "Bookmarks")}
-                    {menuLink("my-calendar", "My list")}
-                  </>
-                )}
-                {hasOrganizerDashboard && menuLink("dashboard", "Organizer Dashboard")}
                 {user.role === "admin" && (
                   <a
                     className={view === "admin-dashboard" ? "active" : ""}
@@ -158,6 +148,16 @@ export default function AppHeader({
                   >
                     <ShieldCheck size={16} /> Admin Dashboard
                   </a>
+                )}
+                {hasOrganizerDashboard && menuLink("dashboard", "Organizer Dashboard")}
+                {user.role !== "admin" && !hasOrganizerDashboard && menuLink("user-dashboard", "My Dashboard")}
+                {user.role === "student" && (
+                  <>
+                    {menuLink("my-rsvps", "My RSVPs")}
+                    {menuLink("check-in-history", "Check-in history")}
+                    {menuLink("saved", "Bookmarks")}
+                    {menuLink("my-calendar", "My list")}
+                  </>
                 )}
                 <a
                   className={view === "settings" ? "active" : ""}

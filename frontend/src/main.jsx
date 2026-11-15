@@ -379,6 +379,13 @@ function App() {
 
   // ---------- navigation ----------
   const go = (target, needsLogin = false) => {
+    if (target === "discover" && user?.role === "admin") {
+      target = "admin-dashboard";
+    } else if (target === "discover" && ["organizer", "faculty"].includes(user?.role)) {
+      target = userHomeView(user);
+    } else if (target === "discover" && user) {
+      target = "user-dashboard";
+    }
     if (target === "dashboard" && (
       !["organizer", "faculty"].includes(user?.role)
       || (!user?.organizer && !user?.organizations?.length)
@@ -409,10 +416,16 @@ function App() {
       !["organizer", "faculty"].includes(user.role)
       || (!user.organizer && !user.organizations?.length)
     )) {
-      setView("discover");
+      setView(userHomeView(user));
     }
     if (view === "admin-dashboard" && user && user.role !== "admin") {
-      setView("discover");
+      setView(userHomeView(user));
+    }
+    if (view === "user-dashboard" && user?.role === "admin") {
+      setView(userHomeView(user));
+    }
+    if (view === "user-dashboard" && ["organizer", "faculty"].includes(user?.role)) {
+      setView(userHomeView(user));
     }
     if (view === "user-dashboard" && !user && !authChecking) {
       setView("discover");
