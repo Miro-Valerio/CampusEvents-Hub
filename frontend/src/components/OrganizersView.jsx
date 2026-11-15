@@ -1,7 +1,10 @@
 import React from "react";
 import { ArrowUpRight, Users } from "lucide-react";
+import useDelayedLoading from "../utils/useDelayedLoading";
 
 export default function OrganizersView({ organizers, loading, onOpen }) {
+  const showLoading = useDelayedLoading(loading);
+
   return (
     <section className="events-section">
       <div className="section-heading">
@@ -17,7 +20,7 @@ export default function OrganizersView({ organizers, loading, onOpen }) {
           <span>departments</span>
         </div>
       </div>
-      {loading && (
+      {showLoading && (
         <div className="loading-line">
           <span /> Loading departments...
         </div>

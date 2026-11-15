@@ -23,6 +23,7 @@ import {
   X,
 } from "lucide-react";
 import "../css/admin-dashboard.css";
+import useDelayedLoading from "../utils/useDelayedLoading";
 
 const SECTIONS = [
   ["overview", "Dashboard", LayoutDashboard],
@@ -103,6 +104,7 @@ function Stat({ label, value, icon: Icon }) {
 export default function AdminDashboard({ http, user, onNotice }) {
   const [section, setSection] = useState("overview");
   const [loading, setLoading] = useState(false);
+  const showLoading = useDelayedLoading(loading);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const [overview, setOverview] = useState({});
@@ -562,7 +564,7 @@ export default function AdminDashboard({ http, user, onNotice }) {
           </button>
         </header>
         {error && <div className="dashboard-error" role="alert">{error}</div>}
-        {loading && <div className="loading-line"><span /> Loading {heading.toLowerCase()}...</div>}
+        {showLoading && <div className="loading-line"><span /> Loading {heading.toLowerCase()}...</div>}
 
         {!loading && section === "overview" && (
           <>

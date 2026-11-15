@@ -18,6 +18,7 @@ import {
 } from "lucide-react";
 import { COURSES } from "../constants";
 import { printRsvpSheet } from "../utils/print";
+import useDelayedLoading from "../utils/useDelayedLoading";
 
 const emptyEvent = () => {
   const start = new Date(Date.now() + 24 * 60 * 60 * 1000);
@@ -96,6 +97,7 @@ export default function OrganizerDashboard({
   const [announcementForm, setAnnouncementForm] = useState(emptyAnnouncement);
   const [stats, setStats] = useState(() => initialDashboard?.stats || null);
   const [loading, setLoading] = useState(() => !initialDashboard);
+  const showLoading = useDelayedLoading(loading);
   const [loadFailed, setLoadFailed] = useState(false);
   const [dashboardError, setDashboardError] = useState(null);
   const [validationMessages, setValidationMessages] = useState([]);
@@ -695,9 +697,9 @@ export default function OrganizerDashboard({
             </div>
             <span className="dashboard-count">{announcements.length}</span>
           </div>
-          {loading ? (
+          {showLoading && announcements.length === 0 ? (
             <div className="loading-line"><span /> Loading announcements...</div>
-          ) : announcements.length === 0 ? (
+          ) : loading && announcements.length === 0 ? null : announcements.length === 0 ? (
             <div className="dashboard-empty">
               You haven’t posted any announcements yet.
             </div>
@@ -763,9 +765,9 @@ export default function OrganizerDashboard({
           </div>
           <span className="dashboard-count">{events.length}</span>
         </div>
-        {loading ? (
+        {showLoading && events.length === 0 ? (
           <div className="loading-line"><span /> Loading organizer events...</div>
-        ) : loadFailed ? (
+        ) : loading && events.length === 0 ? null : loadFailed ? (
           <div className="dashboard-empty">Couldn’t load your events. Use Retry above.</div>
         ) : events.length === 0 ? (
           <div className="dashboard-empty">You haven’t created any events yet.</div>

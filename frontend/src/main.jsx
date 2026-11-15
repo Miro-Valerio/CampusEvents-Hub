@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import { createRoot } from "react-dom/client";
 import axios from "axios";
 import {
@@ -28,6 +28,7 @@ import OrganizersView from "./components/OrganizersView";
 import SeatConfirmationModal from "./components/SeatConfirmationModal";
 import UserSettingsView from "./components/UserSettingsView";
 import { downloadIcs } from "./utils/ics";
+import useDelayedLoading from "./utils/useDelayedLoading";
 import "./css/base.css";
 import "./css/header.css";
 import "./css/buttons.css";
@@ -183,6 +184,7 @@ function App() {
   );
   const [notice, setNotice] = useState("");
   const [noticeType, setNoticeType] = useState("success");
+  const noticeTimer = useRef(null);
   const [error, setError] = useState("");
   const [retryAction, setRetryAction] = useState(null);
   const [authForm, setAuthForm] = useState({
@@ -199,8 +201,21 @@ function App() {
     setRetryAction(() => retry);
   };
   const showNotice = (message, type = "success") => {
+    window.clearTimeout(noticeTimer.current);
+    noticeTimer.current = null;
     setNoticeType(type);
     setNotice(message);
+    if (type === "success") {
+      noticeTimer.current = window.setTimeout(() => {
+        setNotice("");
+        noticeTimer.current = null;
+      }, 3000);
+    }
+  };
+  const dismissNotice = () => {
+    window.clearTimeout(noticeTimer.current);
+    noticeTimer.current = null;
+    setNotice("");
   };
   const clearError = () => {
     setError("");
@@ -330,6 +345,8 @@ function App() {
       if (!silent) setNotificationsLoading(false);
     }
   };
+
+  useEffect(() => () => window.clearTimeout(noticeTimer.current), []);
 
   useEffect(() => {
     const timer = setTimeout(() => loadAnnouncements(), 250);
@@ -848,7 +865,7 @@ function App() {
               <strong>{noticeType === "info" ? "Update" : "Success"}</strong>
               <span>{notice}</span>
             </span>
-            <button onClick={() => setNotice("")} aria-label="Dismiss">
+            <button onClick={dismissNotice} aria-label="Dismiss">
               <X size={15} />
             </button>
           </div>

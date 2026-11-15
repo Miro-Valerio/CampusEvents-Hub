@@ -1,5 +1,6 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { ChevronLeft, ChevronRight } from "lucide-react";
+import useDelayedLoading from "../utils/useDelayedLoading";
 
 const DAYS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 const monthKey = (d) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
@@ -12,6 +13,7 @@ export default function CalendarView({ loadMonth, onOpen }) {
   const [loading, setLoading] = useState(false);
   const [failed, setFailed] = useState(false);
   const [picked, setPicked] = useState(null);
+  const showLoading = useDelayedLoading(loading);
 
   const load = () => {
     setLoading(true);
@@ -69,7 +71,7 @@ export default function CalendarView({ loadMonth, onOpen }) {
           <button onClick={load}>Retry</button>
         </div>
       )}
-      {loading && (
+      {showLoading && (
         <div className="loading-line">
           <span /> Loading calendar...
         </div>

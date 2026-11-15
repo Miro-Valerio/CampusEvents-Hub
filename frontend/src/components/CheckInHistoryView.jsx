@@ -1,7 +1,10 @@
 import React from "react";
 import { CalendarDays, MapPin } from "lucide-react";
+import useDelayedLoading from "../utils/useDelayedLoading";
 
 export default function CheckInHistoryView({ checkIns, loading, prettyDate, onRefresh }) {
+  const showLoading = useDelayedLoading(loading);
+
   return (
     <section className="events-section">
       <div className="section-heading">
@@ -16,9 +19,9 @@ export default function CheckInHistoryView({ checkIns, loading, prettyDate, onRe
           Refresh
         </button>
       </div>
-      {loading ? (
+      {showLoading && checkIns.length === 0 ? (
         <div className="loading-line"><span /> Loading check-in history...</div>
-      ) : checkIns.length === 0 ? (
+      ) : loading && checkIns.length === 0 ? null : checkIns.length === 0 ? (
         <div className="empty-state">
           <div className="empty-icon"><CalendarDays size={27} /></div>
           <h3>No check-ins yet</h3>

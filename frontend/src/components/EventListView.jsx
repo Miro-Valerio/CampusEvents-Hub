@@ -1,6 +1,7 @@
 import React from "react";
 import { Download, RefreshCw } from "lucide-react";
 import EventCard from "./EventCard";
+import useDelayedLoading from "../utils/useDelayedLoading";
 
 // Shared page for "My RSVPs", "Bookmarked events" and "My calendar list".
 export default function EventListView({
@@ -19,6 +20,8 @@ export default function EventListView({
   onBrowse,
   onDownloadAll,
 }) {
+  const showLoading = useDelayedLoading(loading);
+
   return (
     <section className="events-section">
       <div className="section-heading">
@@ -40,11 +43,11 @@ export default function EventListView({
           </button>
         </div>
       </div>
-      {loading ? (
+      {showLoading && events.length === 0 ? (
         <div className="loading-line">
           <span /> Loading...
         </div>
-      ) : events.length === 0 ? (
+      ) : loading && events.length === 0 ? null : events.length === 0 ? (
         <div className="empty-state">
           <div className="empty-icon">{emptyIcon}</div>
           <h3>{emptyTitle}</h3>
