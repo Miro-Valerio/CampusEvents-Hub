@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from "react";
 import {
   CalendarDays,
+  Check,
   Download,
   Eye,
   ImagePlus,
@@ -86,13 +87,15 @@ export default function OrganizerDashboard({
   http,
   userName,
   organizer,
-  onProfileChange,
   onNotice,
 }) {
   const [initialDashboard] = useState(() => readDashboardCache(organizer?.id));
   const [events, setEvents] = useState(() => initialDashboard?.events || []);
   const [announcements, setAnnouncements] = useState(
     () => initialDashboard?.announcements || [],
+  );
+  const [membershipRequests, setMembershipRequests] = useState(
+    () => initialDashboard?.membershipRequests || [],
   );
   const [announcementForm, setAnnouncementForm] = useState(emptyAnnouncement);
   const [stats, setStats] = useState(() => initialDashboard?.stats || null);
@@ -105,10 +108,6 @@ export default function OrganizerDashboard({
   const [editingId, setEditingId] = useState(null);
   const [eventForm, setEventForm] = useState(emptyEvent);
   const [posterFile, setPosterFile] = useState(null);
-  const [profileForm, setProfileForm] = useState({
-    name: organizer?.name || "",
-    description: organizer?.description || "",
-  });
   const [attendees, setAttendees] = useState({});
   const [checkInCodes, setCheckInCodes] = useState({});
   const [photoEventId, setPhotoEventId] = useState(null);
@@ -121,14 +120,16 @@ export default function OrganizerDashboard({
     setDashboardError(null);
     setValidationMessages([]);
     try {
-      const [eventResponse, statsResponse, announcementResponse] = await Promise.all([
+      const [eventResponse, statsResponse, announcementResponse, membershipResponse] = await Promise.all([
         http.get("/organizer/events"),
         http.get("/organizer/stats"),
         http.get("/organizer/announcements"),
+        http.get("/organizer/department-membership-requests"),
       ]);
       setEvents(eventResponse.data.data || []);
       setStats(statsResponse.data);
       setAnnouncements(announcementResponse.data.data || []);
+      setMembershipRequests(membershipResponse.data.data || []);
       try {
         sessionStorage.setItem(
           `ceh_dashboard_v1:${organizer.id}`,
@@ -136,6 +137,7 @@ export default function OrganizerDashboard({
             events: eventResponse.data.data || [],
             stats: statsResponse.data,
             announcements: announcementResponse.data.data || [],
+            membershipRequests: membershipResponse.data.data || [],
           }),
         );
       } catch {
@@ -267,17 +269,17 @@ export default function OrganizerDashboard({
     }
   };
 
-  const saveProfile = async (event) => {
-    event?.preventDefault();
-    setBusy("profile");
+  const reviewMembershipRequest = async (request, action) => {
+    setBusy(`membership-${request.id}`);
     setDashboardError(null);
     setValidationMessages([]);
     try {
-      const { data } = await http.put("/organizer/profile", profileForm);
-      onProfileChange(data);
-      onNotice("Organization profile updated.");
+      await http.put(`/organizer/department-membership-requests/${request.id}`, { action });
+      onNotice(action === "approve" ? `${request.user?.name || "Student"} joined the department.` : "Membership request rejected.");
+      const { data } = await http.get("/organizer/department-membership-requests");
+      setMembershipRequests(data.data || []);
     } catch (error) {
-      reportError(error, () => saveProfile());
+      reportError(error, () => reviewMembershipRequest(request, action));
     } finally {
       setBusy("");
     }
@@ -420,7 +422,7 @@ export default function OrganizerDashboard({
           <h1>
             Welcome back, <span>{userName}</span>.
           </h1>
-          <p>Manage {organizer?.name || "your organization"} events and attendees.</p>
+          <p>Manage {organizer?.department?.name || "your department"} membership, events, and attendees.</p>
         </div>
         <button className="btn btn-outline" onClick={loadDashboard} disabled={loading}>
           <RefreshCw size={16} /> Refresh
@@ -446,43 +448,23 @@ export default function OrganizerDashboard({
       </div>
 
       <div className="dashboard-columns">
-        <form className="dashboard-panel dashboard-profile" onSubmit={saveProfile}>
+        <section className="dashboard-panel dashboard-profile">
           <div className="dashboard-panel-heading">
             <div>
-              <h2>Organization profile</h2>
-              <p>Shown on your public organizer page.</p>
+              <h2>Department membership requests</h2>
+              <p>Approve or reject student requests to join your department.</p>
             </div>
           </div>
-          <label>
-            Organization name
-            <input
-              required
-              maxLength="190"
-              value={profileForm.name}
-              onChange={(event) =>
-                setProfileForm((current) => ({ ...current, name: event.target.value }))
-              }
-            />
-          </label>
-          <label>
-            Description
-            <textarea
-              required
-              maxLength="5000"
-              rows="4"
-              value={profileForm.description || ""}
-              onChange={(event) =>
-                setProfileForm((current) => ({
-                  ...current,
-                  description: event.target.value,
-                }))
-              }
-            />
-          </label>
-          <button className="btn btn-primary" type="submit" disabled={busy === "profile"}>
-            <Save size={15} /> {busy === "profile" ? "Saving..." : "Save profile"}
-          </button>
-        </form>
+          {membershipRequests.length ? membershipRequests.map((request) => (
+            <article className="membership-request" key={request.id}>
+              <div><b>{request.user?.name || "Student"}</b><small>{request.user?.email} · {request.user?.course || "Course not set"}</small></div>
+              <div className="admin-actions">
+                <button className="btn btn-primary" type="button" disabled={Boolean(busy)} onClick={() => reviewMembershipRequest(request, "approve")}><Check size={14} /> Approve</button>
+                <button className="btn btn-outline" type="button" disabled={Boolean(busy)} onClick={() => reviewMembershipRequest(request, "reject")}><X size={14} /> Reject</button>
+              </div>
+            </article>
+          )) : <p className="dashboard-empty">There are no pending membership requests.</p>}
+        </section>
 
         <form className="dashboard-panel dashboard-event-form" onSubmit={saveEvent}>
           <div className="dashboard-panel-heading">

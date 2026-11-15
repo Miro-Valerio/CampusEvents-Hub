@@ -13,7 +13,7 @@ export default function OrganizerPage({ organizer, cardProps, onBack }) {
           <Users size={30} />
         </span>
         <div>
-          <div className="eyebrow muted">EVENT ORGANIZER</div>
+          <div className="eyebrow muted">CAMPUS DEPARTMENT</div>
           <h2>{organizer.name}</h2>
           <p>{organizer.description}</p>
         </div>
@@ -27,7 +27,7 @@ export default function OrganizerPage({ organizer, cardProps, onBack }) {
           ))}
         </div>
       ) : (
-        <p className="muted-text">No upcoming events from this organizer.</p>
+        <p className="muted-text">No upcoming events from this department.</p>
       )}
 
       {organizer.past_events?.length > 0 && (

@@ -20,7 +20,9 @@ class RegisterRequest extends FormRequest
             'password' => ['required', 'string', 'min:8', 'confirmed'],
             'role' => ['prohibited'],
             'course' => ['nullable', 'string', 'max:100'],
-            'department' => ['required', 'string', Rule::exists('departments', 'code')->where('is_active', true)],
+            'department' => ['required', 'string', Rule::exists('departments', 'code')
+                ->where('is_active', true)
+                ->where('is_legacy', false)],
             'organization_name' => ['prohibited'],
             'description' => ['prohibited'],
         ];

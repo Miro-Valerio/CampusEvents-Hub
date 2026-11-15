@@ -7,7 +7,6 @@ use App\Models\AdminActivityLog;
 use App\Models\Department;
 use App\Models\Event;
 use App\Models\EventReport;
-use App\Models\Organizer;
 use App\Models\Rsvp;
 use App\Models\User;
 use App\Notifications\EventCancelled;
@@ -15,92 +14,11 @@ use App\Services\AdminActivityLogger;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Notification;
 use Illuminate\Validation\Rule;
 
 class AdminController extends Controller
 {
-    private const DEPARTMENTS = ['CCS', 'CCJ', 'COE', 'COED', 'CBA'];
-
-    public function users(Request $request): JsonResponse
-    {
-        $data = $request->validate([
-            'role' => ['required', 'string', Rule::in(['student', 'organizer'])],
-        ]);
-        $users = User::query()
-            ->where('role', $data['role'])
-            ->with('organizer:id,user_id,name,description')
-            ->orderBy('name')
-            ->get(['id', 'name', 'email', 'role', 'department', 'course']);
-
-        return response()->json(['data' => $users]);
-    }
-
-    public function createOrganizer(Request $request): JsonResponse
-    {
-        $data = $request->validate([
-            'name' => ['required', 'string', 'max:120'],
-            'email' => ['required', 'email', 'max:190', 'unique:users,email'],
-            'password' => ['required', 'string', 'min:12'],
-            'department' => ['required', 'string', Rule::in(self::DEPARTMENTS)],
-            'organization_name' => ['required', 'string', 'max:190'],
-            'description' => ['required', 'string', 'max:5000'],
-        ]);
-
-        $user = DB::transaction(function () use ($data): User {
-            $user = User::create([
-                'name' => $data['name'],
-                'email' => $data['email'],
-                'password' => Hash::make($data['password']),
-                'department' => $data['department'],
-                'is_active' => true,
-            ]);
-            $user->forceFill(['role' => 'organizer'])->save();
-            $departmentId = Department::where('code', $data['department'])->value('id');
-            $organizer = $user->organizer()->create([
-                'name' => $data['organization_name'],
-                'description' => $data['description'],
-                'department_id' => $departmentId,
-            ]);
-            $organizer->members()->attach($user->id, ['membership_role' => 'owner']);
-
-            return $user->load('organizer');
-        });
-
-        return response()->json(['data' => $user], 201);
-    }
-
-    public function promoteStudent(Request $request, User $user): JsonResponse
-    {
-        $data = $request->validate([
-            'department' => ['required', 'string', Rule::in(self::DEPARTMENTS)],
-            'organization_name' => ['required', 'string', 'max:190'],
-            'description' => ['required', 'string', 'max:5000'],
-        ]);
-        if ($user->role !== 'student' || $user->organizer()->exists()) {
-            return response()->json(['message' => 'Only student accounts without an organizer profile can be promoted.'], 422);
-        }
-
-        $user = DB::transaction(function () use ($data, $user): User {
-            $user->forceFill([
-                'role' => 'organizer',
-                'department' => $data['department'],
-            ])->save();
-            $departmentId = Department::where('code', $data['department'])->value('id');
-            $organizer = $user->organizer()->create([
-                'name' => $data['organization_name'],
-                'description' => $data['description'],
-                'department_id' => $departmentId,
-            ]);
-            $organizer->members()->attach($user->id, ['membership_role' => 'owner']);
-
-            return $user->fresh()->load('organizer');
-        });
-
-        return response()->json(['data' => $user]);
-    }
-
     public function reports(): JsonResponse
     {
         $reports = EventReport::query()
@@ -194,7 +112,7 @@ class AdminController extends Controller
             'total_students' => User::where('role', 'student')->count(),
             'total_faculty' => User::where('role', 'faculty')->count(),
             'total_organizers' => User::where('role', 'organizer')->count(),
-            'total_organizations' => Organizer::count(),
+            'assigned_department_organizers' => Department::whereNotNull('organizer_user_id')->count(),
             'total_departments' => Department::where('is_active', true)->where('is_legacy', false)->count(),
             'total_events' => Event::count(),
             'upcoming_events' => Event::where('is_published', true)
@@ -213,14 +131,12 @@ class AdminController extends Controller
             'from' => ['nullable', 'date'],
             'to' => ['nullable', 'date', 'after_or_equal:from'],
             'department_id' => ['nullable', 'exists:departments,id'],
-            'organization_id' => ['nullable', 'exists:organizers,id'],
         ]);
         $events = Event::query()
             ->where('is_published', true)
             ->when($filters['from'] ?? null, fn ($query, $from) => $query->whereDate('starts_at', '>=', $from))
             ->when($filters['to'] ?? null, fn ($query, $to) => $query->whereDate('starts_at', '<=', $to))
-            ->when($filters['department_id'] ?? null, fn ($query, $id) => $query->whereHas('organizer', fn ($organizers) => $organizers->where('department_id', $id)))
-            ->when($filters['organization_id'] ?? null, fn ($query, $id) => $query->where('organizer_id', $id));
+            ->when($filters['department_id'] ?? null, fn ($query, $id) => $query->whereHas('organizer', fn ($organizers) => $organizers->where('department_id', $id)));
         $eventIds = (clone $events)->select('events.id');
         $registrations = Rsvp::query()->whereIn('event_id', $eventIds)->where('status', Rsvp::STATUS_GOING);
         $departmentEvents = (clone $events)
@@ -237,18 +153,6 @@ class AdminController extends Controller
             ->orderByDesc('attendance_count')
             ->limit(10)
             ->get(['id', 'title', 'organizer_id', 'starts_at', 'baseline_registered_count', 'is_cancelled']);
-        $organizations = Organizer::query()
-            ->with('department:id,code,name')
-            ->withCount(['events' => fn ($query) => $query
-                ->where('is_published', true)
-                ->when($filters['from'] ?? null, fn ($events, $from) => $events->whereDate('starts_at', '>=', $from))
-                ->when($filters['to'] ?? null, fn ($events, $to) => $events->whereDate('starts_at', '<=', $to))])
-            ->when($filters['department_id'] ?? null, fn ($query, $id) => $query->where('department_id', $id))
-            ->when($filters['organization_id'] ?? null, fn ($query, $id) => $query->whereKey($id))
-            ->orderByDesc('events_count')
-            ->limit(20)
-            ->get(['id', 'name', 'department_id', 'is_active']);
-
         return response()->json([
             'totals' => [
                 'students' => User::where('role', 'student')->count(),
@@ -263,7 +167,7 @@ class AdminController extends Controller
             ],
             'events_per_department' => $departmentEvents,
             'most_attended_events' => $topEvents,
-            'organization_activity' => $organizations,
+            'department_activity' => $departmentEvents,
         ]);
     }
 

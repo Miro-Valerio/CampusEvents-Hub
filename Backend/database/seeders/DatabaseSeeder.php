@@ -107,6 +107,15 @@ class DatabaseSeeder extends Seeder
             $organizer->user()->associate($account);
             $organizer->save();
             $organizer->members()->syncWithoutDetaching([$account->id => ['membership_role' => 'owner']]);
+            if ($departmentCode) {
+                Department::where('code', $departmentCode)
+                    ->whereNull('organizer_user_id')
+                    ->update([
+                        'description' => Department::where('code', $departmentCode)->value('description')
+                            ?: $organizer->description,
+                        'organizer_user_id' => $account->id,
+                    ]);
+            }
         }
         $athletics = Organizer::updateOrCreate(
             ['name' => 'SPC Athletics Council'],

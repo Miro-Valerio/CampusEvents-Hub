@@ -127,6 +127,29 @@ class AdminManagementTest extends TestCase
         $this->assertDatabaseHas('departments', ['id' => $department->id]);
     }
 
+    public function test_admin_can_designate_an_active_organizer_for_a_department(): void
+    {
+        $admin = $this->admin();
+        $department = Department::where('code', 'CCS')->firstOrFail();
+        $organizer = User::factory()->create([
+            'role' => 'organizer',
+            'department' => $department->code,
+            'is_active' => true,
+        ]);
+
+        $this->useToken($admin)
+            ->putJson("/api/admin/departments/{$department->id}", [
+                'organizer_user_id' => $organizer->id,
+            ])
+            ->assertOk()
+            ->assertJsonPath('data.organizer_user_id', $organizer->id);
+
+        $this->assertDatabaseHas('departments', [
+            'id' => $department->id,
+            'organizer_user_id' => $organizer->id,
+        ]);
+    }
+
     public function test_admin_can_unpublish_an_event_without_an_approval_workflow(): void
     {
         $admin = $this->admin();

@@ -1,6 +1,5 @@
 import React, { useCallback, useEffect, useState } from "react";
 import {
-  Building2,
   CalendarDays,
   Check,
   ClipboardList,
@@ -25,18 +24,8 @@ const DEFAULT_USER_FORM = {
   name: "",
   email: "",
   role: "faculty",
-  department: "CCS",
+  department: "",
   course: "",
-  organization_id: "",
-};
-const DEFAULT_ORGANIZATION_FORM = {
-  name: "",
-  description: "",
-  logo_url: "",
-  department_id: "",
-  is_active: true,
-  is_listed: true,
-  member_ids: [],
 };
 const DEFAULT_ANNOUNCEMENT_FORM = {
   title: "",
@@ -92,8 +81,8 @@ export default function AdminDashboard({ http, user, onNotice, section, onSectio
   const [users, setUsers] = useState([]);
   const [userPage, setUserPage] = useState(1);
   const [userPagination, setUserPagination] = useState({ current_page: 1, last_page: 1, from: 0, to: 0, total: 0 });
-  const [organizations, setOrganizations] = useState([]);
   const [departments, setDepartments] = useState([]);
+  const [organizerChoices, setOrganizerChoices] = useState([]);
   const [departmentDetail, setDepartmentDetail] = useState(null);
   const [events, setEvents] = useState([]);
   const [eventDetail, setEventDetail] = useState(null);
@@ -104,16 +93,13 @@ export default function AdminDashboard({ http, user, onNotice, section, onSectio
   const [analytics, setAnalytics] = useState(null);
   const [activity, setActivity] = useState([]);
   const [settings, setSettings] = useState(DEFAULT_SETTINGS);
-  const [memberChoices, setMemberChoices] = useState([]);
   const [userFilters, setUserFilters] = useState({ search: "", role: "", department: "" });
-  const [eventFilters, setEventFilters] = useState({ search: "", department_id: "", organization_id: "", from: "", to: "", trashed: "" });
-  const [analyticsFilters, setAnalyticsFilters] = useState({ from: "", to: "", department_id: "", organization_id: "" });
+  const [eventFilters, setEventFilters] = useState({ search: "", department_id: "", from: "", to: "", trashed: "" });
+  const [analyticsFilters, setAnalyticsFilters] = useState({ from: "", to: "", department_id: "" });
   const [userForm, setUserForm] = useState(DEFAULT_USER_FORM);
   const [editingUserId, setEditingUserId] = useState(null);
   const [userFormOpen, setUserFormOpen] = useState(false);
-  const [organizationForm, setOrganizationForm] = useState(DEFAULT_ORGANIZATION_FORM);
-  const [editingOrganizationId, setEditingOrganizationId] = useState(null);
-  const [departmentForm, setDepartmentForm] = useState({ code: "", name: "", description: "", is_active: true });
+  const [departmentForm, setDepartmentForm] = useState({ code: "", name: "", description: "", is_active: true, organizer_user_id: "" });
   const [editingDepartmentId, setEditingDepartmentId] = useState(null);
   const [eventEdit, setEventEdit] = useState(null);
   const [announcementForm, setAnnouncementForm] = useState(DEFAULT_ANNOUNCEMENT_FORM);
@@ -134,39 +120,29 @@ export default function AdminDashboard({ http, user, onNotice, section, onSectio
         setReports(reportsResponse.data.data || []);
       } else if (section === "users") {
         const params = { ...Object.fromEntries(Object.entries(userFilters).filter(([, value]) => value)), page: userPage };
-        const [response, departmentsResponse, organizationsResponse] = await Promise.all([
+        const [response, departmentsResponse] = await Promise.all([
           http.get("/admin/users", { params }),
           http.get("/admin/departments"),
-          http.get("/admin/organizations"),
         ]);
         setUsers(response.data.data || []);
         setUserPagination(response.data);
         setDepartments(departmentsResponse.data.data || []);
-        setOrganizations(organizationsResponse.data.data || []);
-      } else if (section === "organizations") {
-        const [response, departmentsResponse, facultyResponse, organizerResponse] = await Promise.all([
-          http.get("/admin/organizations"),
+      } else if (section === "departments") {
+        const [response, organizersResponse] = await Promise.all([
           http.get("/admin/departments"),
-          http.get("/admin/users", { params: { role: "faculty", active: true, per_page: 100 } }),
           http.get("/admin/users", { params: { role: "organizer", active: true, per_page: 100 } }),
         ]);
-        setOrganizations(response.data.data || []);
-        setDepartments(departmentsResponse.data.data || []);
-        setMemberChoices([...(facultyResponse.data.data || []), ...(organizerResponse.data.data || [])]);
-      } else if (section === "departments") {
-        const response = await http.get("/admin/departments");
         setDepartments(response.data.data || []);
+        setOrganizerChoices(organizersResponse.data.data || []);
       } else if (section === "events") {
         const params = { ...Object.fromEntries(Object.entries(eventFilters).filter(([, value]) => value)), page: eventPage };
-        const [response, departmentsResponse, organizationsResponse] = await Promise.all([
+        const [response, departmentsResponse] = await Promise.all([
           http.get("/admin/events", { params }),
           http.get("/admin/departments"),
-          http.get("/admin/organizations"),
         ]);
         setEvents(response.data.data || []);
         setEventPagination(response.data);
         setDepartments(departmentsResponse.data.data || []);
-        setOrganizations(organizationsResponse.data.data || []);
       } else if (section === "announcements") {
         const [response, departmentsResponse] = await Promise.all([
           http.get("/admin/announcements"),
@@ -179,14 +155,12 @@ export default function AdminDashboard({ http, user, onNotice, section, onSectio
         setReports(response.data.data || []);
       } else if (section === "analytics") {
         const params = Object.fromEntries(Object.entries(analyticsFilters).filter(([, value]) => value));
-        const [response, departmentsResponse, organizationsResponse] = await Promise.all([
+        const [response, departmentsResponse] = await Promise.all([
           http.get("/admin/analytics", { params }),
           http.get("/admin/departments"),
-          http.get("/admin/organizations"),
         ]);
         setAnalytics(response.data);
         setDepartments(departmentsResponse.data.data || []);
-        setOrganizations(organizationsResponse.data.data || []);
       } else if (section === "activity") {
         const response = await http.get("/admin/activity", {
           params: activitySearch ? { search: activitySearch } : {},
@@ -216,14 +190,15 @@ export default function AdminDashboard({ http, user, onNotice, section, onSectio
     setError("");
     try {
       if (editingUserId) {
-        const { organization_id: _organizationId, ...updates } = userForm;
-        await http.put(`/admin/users/${editingUserId}`, updates);
+        await http.put(`/admin/users/${editingUserId}`, {
+          ...userForm,
+          department: userForm.role === "admin" ? null : userForm.department,
+        });
         onNotice("Account details updated.");
       } else {
         const payload = {
           ...userForm,
           department: userForm.role === "admin" ? null : userForm.department,
-          organization_id: userForm.role === "organizer" ? Number(userForm.organization_id) : null,
         };
         await http.post("/admin/users", payload);
         onNotice("Account created. A password setup invitation was sent to the email address.");
@@ -244,9 +219,8 @@ export default function AdminDashboard({ http, user, onNotice, section, onSectio
       name: user.name,
       email: user.email,
       role: user.role,
-      department: user.department || "CCS",
+      department: user.department || "",
       course: user.course || "",
-      organization_id: user.organizations?.[0]?.id || "",
     });
     setEditingUserId(user.id);
     setUserFormOpen(true);
@@ -292,64 +266,18 @@ export default function AdminDashboard({ http, user, onNotice, section, onSectio
     }
   };
 
-  const saveOrganization = async (event) => {
-    event.preventDefault();
-    setBusy(true);
-    setError("");
-    try {
-      const payload = {
-        ...organizationForm,
-        department_id: Number(organizationForm.department_id),
-        member_ids: organizationForm.member_ids.map(Number),
-      };
-      if (editingOrganizationId) {
-        await http.put(`/admin/organizations/${editingOrganizationId}`, payload);
-        onNotice("Organization updated.");
-      } else {
-        await http.post("/admin/organizations", payload);
-        onNotice("Organization created.");
-      }
-      setOrganizationForm(DEFAULT_ORGANIZATION_FORM);
-      setEditingOrganizationId(null);
-      await loadSection();
-    } catch (requestError) {
-      setError(messageFrom(requestError));
-    } finally {
-      setBusy(false);
-    }
-  };
-
-  const editOrganization = (organization) => {
-    setOrganizationForm({
-      name: organization.name,
-      description: organization.description || "",
-      logo_url: organization.logo_url || "",
-      department_id: String(organization.department_id || ""),
-      is_active: organization.is_active,
-      is_listed: organization.is_listed,
-      member_ids: (organization.members || []).map((member) => member.id),
-    });
-    setEditingOrganizationId(organization.id);
-  };
-
-  const deleteOrganization = async (organization) => {
-    if (!window.confirm(`Delete "${organization.name}"? Organizations with event history must be deactivated instead.`)) return;
-    try {
-      await http.delete(`/admin/organizations/${organization.id}`);
-      onNotice("Organization deleted.");
-      await loadSection();
-    } catch (requestError) {
-      setError(messageFrom(requestError));
-    }
-  };
-
   const saveDepartment = async (event) => {
     event.preventDefault();
     setBusy(true);
     setError("");
     try {
       const payload = editingDepartmentId
-        ? { name: departmentForm.name, description: departmentForm.description, is_active: departmentForm.is_active }
+        ? {
+          name: departmentForm.name,
+          description: departmentForm.description,
+          is_active: departmentForm.is_active,
+          organizer_user_id: departmentForm.organizer_user_id ? Number(departmentForm.organizer_user_id) : null,
+        }
         : departmentForm;
       if (editingDepartmentId) {
         await http.put(`/admin/departments/${editingDepartmentId}`, payload);
@@ -358,7 +286,7 @@ export default function AdminDashboard({ http, user, onNotice, section, onSectio
         await http.post("/admin/departments", payload);
         onNotice("Department created.");
       }
-      setDepartmentForm({ code: "", name: "", description: "", is_active: true });
+      setDepartmentForm({ code: "", name: "", description: "", is_active: true, organizer_user_id: "" });
       setEditingDepartmentId(null);
       await loadSection();
     } catch (requestError) {
@@ -369,7 +297,7 @@ export default function AdminDashboard({ http, user, onNotice, section, onSectio
   };
 
   const deleteDepartment = async (department) => {
-    if (!window.confirm(`Delete ${department.name}? Departments with assigned users, organizations, or announcements cannot be deleted.`)) return;
+    if (!window.confirm(`Delete ${department.name}? Departments with members, requests, events, or announcements cannot be deleted.`)) return;
     try {
       await http.delete(`/admin/departments/${department.id}`);
       onNotice("Department deleted.");
@@ -407,7 +335,6 @@ export default function AdminDashboard({ http, user, onNotice, section, onSectio
       await http.put(`/admin/events/${eventEdit.id}`, {
         ...eventEdit,
         capacity: Number(eventEdit.capacity),
-        organizer_id: Number(eventEdit.organizer_id),
       });
       onNotice("Event updated.");
       setEventEdit(null);
@@ -551,7 +478,7 @@ export default function AdminDashboard({ http, user, onNotice, section, onSectio
               <Stat label="Total Students" value={overview.total_students} icon={Users} />
               <Stat label="Total Faculty" value={overview.total_faculty} icon={Users} />
               <Stat label="Total Organizers" value={overview.total_organizers} icon={ShieldCheck} />
-              <Stat label="Total Organizations" value={overview.total_organizations} icon={Building2} />
+              <Stat label="Departments with organizers" value={overview.assigned_department_organizers} icon={Landmark} />
               <Stat label="Total Departments" value={overview.total_departments} icon={Landmark} />
               <Stat label="Total Events" value={overview.total_events} icon={CalendarDays} />
               <Stat label="Upcoming Events" value={overview.upcoming_events} icon={CalendarDays} />
@@ -559,7 +486,7 @@ export default function AdminDashboard({ http, user, onNotice, section, onSectio
             </div>
             <section className="dashboard-panel admin-overview-note">
               <h2>System overview</h2>
-              <p>Organizers publish events directly. Admin tools are for account, organization, department, announcement, event, and report management—there is no event approval queue.</p>
+              <p>Each department has one administrator-designated organizer. Students request department membership, and that organizer reviews the requests.</p>
             </section>
           </>
         )}
@@ -586,43 +513,25 @@ export default function AdminDashboard({ http, user, onNotice, section, onSectio
                   <Field label="Full name"><input required maxLength={120} value={userForm.name} onChange={(e) => setUserForm({ ...userForm, name: e.target.value })} /></Field>
                   <Field label="Email"><input required type="email" value={userForm.email} onChange={(e) => setUserForm({ ...userForm, email: e.target.value })} /></Field>
                   <Field label="Role"><select value={userForm.role} onChange={(e) => setUserForm({ ...userForm, role: e.target.value })}>{["student", "faculty", "organizer", "admin"].map((role) => <option key={role}>{role}</option>)}</select></Field>
-                  {userForm.role !== "admin" && <Field label="Department"><select required value={userForm.department} onChange={(e) => setUserForm({ ...userForm, department: e.target.value })}>{departments.filter((d) => d.is_active).map((d) => <option key={d.id} value={d.code}>{d.name} ({d.code})</option>)}</select></Field>}
+                  {userForm.role !== "admin" && <Field label="Department"><select required value={userForm.department} onChange={(e) => setUserForm({ ...userForm, department: e.target.value })}><option value="">Select a department</option>{departments.filter((d) => d.is_active && !d.is_legacy).map((d) => <option key={d.id} value={d.code}>{d.name} ({d.code})</option>)}</select></Field>}
                   {userForm.role === "student" && <Field label="Course (optional)"><input value={userForm.course} onChange={(e) => setUserForm({ ...userForm, course: e.target.value })} /></Field>}
-                  {userForm.role === "organizer" && <Field label="Organization"><select required value={userForm.organization_id} onChange={(e) => setUserForm({ ...userForm, organization_id: e.target.value })}><option value="">Select an organization</option>{organizations.filter((o) => o.is_active && String(o.department_id) === String(departments.find((d) => d.code === userForm.department)?.id)).map((org) => <option key={org.id} value={org.id}>{org.name}</option>)}</select></Field>}
+                  {userForm.role === "organizer" && <p className="admin-form-hint">After account setup, assign this organizer to the department in Colleges / Departments.</p>}
                 </div>
                 <div className="admin-actions"><button className="btn btn-primary" disabled={busy}><Save size={15} />{busy ? "Saving..." : editingUserId ? "Save changes" : "Send invitation"}</button><button type="button" className="btn btn-outline" onClick={() => setUserFormOpen(false)}>Cancel</button></div>
               </form>
             )}
-            <div className="admin-table-wrap"><table className="admin-table"><thead><tr><th>User</th><th>Role</th><th>Department</th><th>Organizations</th><th>Status</th><th>Actions</th></tr></thead><tbody>
+            <div className="admin-table-wrap"><table className="admin-table"><thead><tr><th>User</th><th>Role</th><th>Department</th><th>Status</th><th>Actions</th></tr></thead><tbody>
               {users.map((user) => {
                 const hasCompletedInvitation = user.invitations?.some((invitation) => invitation.used_at);
                 const hasPendingInvitation = user.invitations?.some((invitation) => !invitation.used_at);
-                return <tr key={user.id}><td><b>{user.name}</b><small>{user.email}</small></td><td>{user.role}</td><td>{user.department || "—"}</td><td>{user.organizations?.map((org) => org.name).join(", ") || user.organizer?.name || "—"}</td><td><span className={`admin-status ${user.is_active ? "active" : "inactive"}`}>{user.is_active ? "Active" : hasPendingInvitation ? "Invitation pending" : "Inactive"}</span></td><td className="admin-row-actions"><button title="Edit account" onClick={() => startEditUser(user)}><Pencil size={15} /></button>{!user.is_active ? hasCompletedInvitation ? <button title="Reactivate account" onClick={() => activateUser(user)}><Check size={15} /></button> : <button title="Resend invitation" onClick={() => resendInvitation(user)}><RefreshCw size={15} /></button> : <button title="Deactivate account" onClick={() => deactivateUser(user)}><Trash2 size={15} /></button>}</td></tr>;
+                const pendingDepartment = user.department_membership_requests?.[0]?.department;
+                return <tr key={user.id}><td><b>{user.name}</b><small>{user.email}</small></td><td>{user.role}</td><td>{user.department || (pendingDepartment ? `Request pending: ${pendingDepartment.code}` : "—")}</td><td><span className={`admin-status ${user.is_active ? "active" : "inactive"}`}>{user.is_active ? "Active" : hasPendingInvitation ? "Invitation pending" : "Inactive"}</span></td><td className="admin-row-actions"><button title="Edit account" onClick={() => startEditUser(user)}><Pencil size={15} /></button>{!user.is_active ? hasCompletedInvitation ? <button title="Reactivate account" onClick={() => activateUser(user)}><Check size={15} /></button> : <button title="Resend invitation" onClick={() => resendInvitation(user)}><RefreshCw size={15} /></button> : <button title="Deactivate account" onClick={() => deactivateUser(user)}><Trash2 size={15} /></button>}</td></tr>;
               })}
             </tbody></table>{!users.length && <p className="dashboard-empty">No accounts match these filters.</p>}</div>
             <div className="admin-pagination">
               <span>Showing {userPagination.from || 0}–{userPagination.to || 0} of {userPagination.total || 0} accounts</span>
               <div><button className="btn btn-outline" type="button" disabled={userPage <= 1 || loading} onClick={() => setUserPage((page) => page - 1)}>Previous</button><span>Page {userPagination.current_page || userPage} of {userPagination.last_page || 1}</span><button className="btn btn-outline" type="button" disabled={userPage >= (userPagination.last_page || 1) || loading} onClick={() => setUserPage((page) => page + 1)}>Next</button></div>
             </div>
-          </>
-        )}
-
-        {section === "organizations" && (
-          <>
-            <form className="settings-card admin-form" onSubmit={saveOrganization}>
-              <h2>{editingOrganizationId ? "Edit organization" : "Create organization"}</h2>
-              <div className="admin-form-grid">
-                <Field label="Organization name"><input required maxLength={190} value={organizationForm.name} onChange={(e) => setOrganizationForm({ ...organizationForm, name: e.target.value })} /></Field>
-                <Field label="Department"><select required value={organizationForm.department_id} onChange={(e) => setOrganizationForm({ ...organizationForm, department_id: e.target.value, member_ids: [] })}><option value="">Choose department</option>{departments.filter((d) => d.is_active).map((d) => <option key={d.id} value={d.id}>{d.name} ({d.code})</option>)}</select></Field>
-                <Field label="Logo URL (optional)"><input type="url" value={organizationForm.logo_url} onChange={(e) => setOrganizationForm({ ...organizationForm, logo_url: e.target.value })} /></Field>
-                <Field label="Status"><select value={organizationForm.is_active ? "true" : "false"} onChange={(e) => setOrganizationForm({ ...organizationForm, is_active: e.target.value === "true" })}><option value="true">Active</option><option value="false">Inactive</option></select></Field>
-                <Field label="Public department listing"><select value={organizationForm.is_listed ? "true" : "false"} onChange={(e) => setOrganizationForm({ ...organizationForm, is_listed: e.target.value === "true" })}><option value="true">Visible</option><option value="false">Hidden</option></select></Field>
-                <Field label="Description"><textarea rows={3} maxLength={5000} value={organizationForm.description} onChange={(e) => setOrganizationForm({ ...organizationForm, description: e.target.value })} /></Field>
-                <Field label="Officers and faculty"><select multiple value={organizationForm.member_ids.map(String)} onChange={(e) => setOrganizationForm({ ...organizationForm, member_ids: [...e.target.selectedOptions].map((o) => Number(o.value)) })}>{memberChoices.filter((m) => String(m.department) === String(departments.find((d) => String(d.id) === String(organizationForm.department_id))?.code)).map((member) => <option key={member.id} value={member.id}>{member.name} · {member.role}</option>)}</select><small>Use Ctrl or Cmd to select more than one person.</small></Field>
-              </div>
-              <div className="admin-actions"><button className="btn btn-primary" disabled={busy}><Save size={15} />{editingOrganizationId ? "Save organization" : "Create organization"}</button>{editingOrganizationId && <button type="button" className="btn btn-outline" onClick={() => { setEditingOrganizationId(null); setOrganizationForm(DEFAULT_ORGANIZATION_FORM); }}>Cancel</button>}</div>
-            </form>
-            <div className="admin-card-grid">{organizations.map((org) => <article className="dashboard-panel admin-entity-card" key={org.id}><div className="admin-entity-heading"><div><h2>{org.name}</h2><p>{org.department?.name || "Department not assigned"}</p></div><span className={`admin-status ${org.is_active && org.is_listed ? "active" : "inactive"}`}>{!org.is_active ? "Inactive" : org.is_listed ? "Visible" : "Hidden"}</span></div><p>{org.description || "No description."}</p><small>{org.events_count} events · {org.members_count} members: {org.members?.map((m) => m.name).join(", ") || "none"}</small><div className="admin-actions"><button className="btn btn-outline" onClick={() => editOrganization(org)}><Pencil size={14} /> Edit</button><button className="btn btn-outline danger" onClick={() => deleteOrganization(org)}><Trash2 size={14} /> Delete</button></div></article>)}</div>
           </>
         )}
 
@@ -634,14 +543,15 @@ export default function AdminDashboard({ http, user, onNotice, section, onSectio
                 {!editingDepartmentId && <Field label="Code"><input required maxLength={20} pattern="[A-Z0-9_-]+" value={departmentForm.code} onChange={(e) => setDepartmentForm({ ...departmentForm, code: e.target.value.toUpperCase() })} /></Field>}
                 <Field label="Department name"><input required maxLength={190} value={departmentForm.name} onChange={(e) => setDepartmentForm({ ...departmentForm, name: e.target.value })} /></Field>
                 <Field label="Description"><input value={departmentForm.description} maxLength={2000} onChange={(e) => setDepartmentForm({ ...departmentForm, description: e.target.value })} /></Field>
+                {editingDepartmentId && <Field label="Designated organizer"><select value={departmentForm.organizer_user_id} onChange={(e) => setDepartmentForm({ ...departmentForm, organizer_user_id: e.target.value })}><option value="">Unassigned</option>{organizerChoices.filter((organizer) => organizer.department === departments.find((department) => department.id === editingDepartmentId)?.code).map((organizer) => <option key={organizer.id} value={organizer.id}>{organizer.name} · {organizer.email}</option>)}</select></Field>}
                 {editingDepartmentId && <Field label="Status"><select value={departmentForm.is_active ? "true" : "false"} onChange={(e) => setDepartmentForm({ ...departmentForm, is_active: e.target.value === "true" })}><option value="true">Active</option><option value="false">Inactive</option></select></Field>}
               </div>
-              <div className="admin-actions"><button className="btn btn-primary" disabled={busy}><Save size={15} />Save department</button>{editingDepartmentId && <button type="button" className="btn btn-outline" onClick={() => { setEditingDepartmentId(null); setDepartmentForm({ code: "", name: "", description: "", is_active: true }); }}>Cancel</button>}</div>
+              <div className="admin-actions"><button className="btn btn-primary" disabled={busy}><Save size={15} />Save department</button>{editingDepartmentId && <button type="button" className="btn btn-outline" onClick={() => { setEditingDepartmentId(null); setDepartmentForm({ code: "", name: "", description: "", is_active: true, organizer_user_id: "" }); }}>Cancel</button>}</div>
             </form>
-            <div className="admin-table-wrap"><table className="admin-table"><thead><tr><th>Department</th><th>Users</th><th>Organizations</th><th>Events</th><th>Status</th><th>Actions</th></tr></thead><tbody>
-              {departments.map((dept) => <tr key={dept.id}><td><b>{dept.name}</b><small>{dept.code}{dept.is_legacy ? " · legacy" : ""}</small></td><td>{dept.users_count}</td><td>{dept.organizers_count}</td><td>{dept.events_count}</td><td>{dept.is_active ? "Active" : "Inactive"}</td><td className="admin-row-actions"><button title="View department members and events" onClick={() => viewDepartment(dept)}><Eye size={15} /></button><button title="Edit department" onClick={() => { setEditingDepartmentId(dept.id); setDepartmentForm({ name: dept.name, description: dept.description || "", is_active: dept.is_active }); }}><Pencil size={15} /></button><button title="Delete department" onClick={() => deleteDepartment(dept)}><Trash2 size={15} /></button></td></tr>)}
+            <div className="admin-table-wrap"><table className="admin-table"><thead><tr><th>Department</th><th>Designated organizer</th><th>Members</th><th>Events</th><th>Pending requests</th><th>Status</th><th>Actions</th></tr></thead><tbody>
+              {departments.map((dept) => <tr key={dept.id}><td><b>{dept.name}</b><small>{dept.code}{dept.is_legacy ? " · legacy" : ""}</small></td><td>{dept.designated_organizer?.name || "Unassigned"}</td><td>{dept.users_count}</td><td>{dept.events_count}</td><td>{dept.pending_requests_count}</td><td>{dept.is_active ? "Active" : "Inactive"}</td><td className="admin-row-actions"><button title="View department members, requests, and events" onClick={() => viewDepartment(dept)}><Eye size={15} /></button><button title="Edit department" onClick={() => { setEditingDepartmentId(dept.id); setDepartmentForm({ name: dept.name, description: dept.description || "", is_active: dept.is_active, organizer_user_id: String(dept.organizer_user_id || "") }); }}><Pencil size={15} /></button><button title="Delete department" onClick={() => deleteDepartment(dept)}><Trash2 size={15} /></button></td></tr>)}
             </tbody></table></div>
-            {departmentDetail && <section className="dashboard-panel admin-detail-panel"><div className="admin-form-heading"><h2>{departmentDetail.name} ({departmentDetail.code})</h2><button type="button" aria-label="Close department details" onClick={() => setDepartmentDetail(null)}><X size={18} /></button></div><h3>Department members</h3>{departmentDetail.users?.length ? <div className="admin-detail-list">{departmentDetail.users.map((member) => <p key={member.id}><b>{member.name}</b><span>{member.role} · {member.email}</span></p>)}</div> : <p>No users assigned.</p>}<h3>Organizations and events</h3>{departmentDetail.organizers?.length ? departmentDetail.organizers.map((organization) => <div className="admin-detail-organization" key={organization.id}><b>{organization.name}</b>{organization.events?.length ? <ul>{organization.events.map((event) => <li key={event.id}>{event.title} · {formatDate(event.starts_at)} · {event.is_cancelled ? "Cancelled" : event.is_published ? "Published" : "Unpublished"}</li>)}</ul> : <p>No events.</p>}</div>) : <p>No organizations assigned.</p>}</section>}
+            {departmentDetail && <section className="dashboard-panel admin-detail-panel"><div className="admin-form-heading"><h2>{departmentDetail.name} ({departmentDetail.code})</h2><button type="button" aria-label="Close department details" onClick={() => setDepartmentDetail(null)}><X size={18} /></button></div><h3>Designated organizer</h3><p>{departmentDetail.designated_organizer?.name || "No organizer assigned."}</p><h3>Department members</h3>{departmentDetail.users?.length ? <div className="admin-detail-list">{departmentDetail.users.map((member) => <p key={member.id}><b>{member.name}</b><span>{member.role} · {member.email}</span></p>)}</div> : <p>No users assigned.</p>}<h3>Pending student requests</h3>{departmentDetail.membership_requests?.length ? <div className="admin-detail-list">{departmentDetail.membership_requests.map((request) => <p key={request.id}><b>{request.user?.name}</b><span>{request.user?.email} · {formatDate(request.created_at)}</span></p>)}</div> : <p>No pending requests.</p>}<h3>Department events</h3>{departmentDetail.organizers?.flatMap((record) => record.events || []).length ? <ul>{departmentDetail.organizers.flatMap((record) => record.events || []).map((event) => <li key={event.id}>{event.title} · {formatDate(event.starts_at)} · {event.is_cancelled ? "Cancelled" : event.is_published ? "Published" : "Unpublished"}</li>)}</ul> : <p>No events.</p>}</section>}
           </>
         )}
 
@@ -650,14 +560,13 @@ export default function AdminDashboard({ http, user, onNotice, section, onSectio
             <div className="admin-toolbar">
               <label className="admin-search"><Search size={16} /><input placeholder="Search events" value={eventFilters.search} onChange={(e) => setEventFilters((f) => ({ ...f, search: e.target.value }))} /></label>
               <select value={eventFilters.department_id} onChange={(e) => setEventFilters((f) => ({ ...f, department_id: e.target.value }))}><option value="">All departments</option>{departments.map((d) => <option key={d.id} value={d.id}>{d.code}</option>)}</select>
-              <select value={eventFilters.organization_id} onChange={(e) => setEventFilters((f) => ({ ...f, organization_id: e.target.value }))}><option value="">All organizations</option>{organizations.map((o) => <option key={o.id} value={o.id}>{o.name}</option>)}</select>
               <label className="admin-date-filter">From<input type="date" value={eventFilters.from} onChange={(e) => setEventFilters((f) => ({ ...f, from: e.target.value }))} /></label>
               <label className="admin-date-filter">To<input type="date" value={eventFilters.to} onChange={(e) => setEventFilters((f) => ({ ...f, to: e.target.value }))} /></label>
               <label className="admin-checkbox"><input type="checkbox" checked={Boolean(eventFilters.trashed)} onChange={(e) => setEventFilters((f) => ({ ...f, trashed: e.target.checked ? "1" : "" }))} /> Include removed</label>
             </div>
             {eventEdit && <form className="settings-card admin-form" onSubmit={saveEvent}><div className="admin-form-heading"><h2>Edit event</h2><button type="button" aria-label="Close event editor" onClick={() => setEventEdit(null)}><X size={18} /></button></div><div className="admin-form-grid">
               {["title", "venue", "category", "poster_url"].map((key) => <Field key={key} label={key.replace("_", " ")}><input required={key !== "poster_url"} value={eventEdit[key] || ""} onChange={(e) => setEventEdit({ ...eventEdit, [key]: e.target.value })} /></Field>)}
-              <Field label="Organizer"><select value={eventEdit.organizer_id} onChange={(e) => setEventEdit({ ...eventEdit, organizer_id: e.target.value })}>{organizations.map((o) => <option key={o.id} value={o.id}>{o.name}</option>)}</select></Field>
+              <Field label="Department"><input value={eventEdit.organizer?.department?.name || "Unassigned"} readOnly /></Field>
               <Field label="Starts at"><input required type="datetime-local" value={localDateTime(eventEdit.starts_at)} onChange={(e) => setEventEdit({ ...eventEdit, starts_at: e.target.value })} /></Field>
               <Field label="Ends at"><input type="datetime-local" value={localDateTime(eventEdit.ends_at)} onChange={(e) => setEventEdit({ ...eventEdit, ends_at: e.target.value })} /></Field>
               <Field label="Capacity"><input required type="number" min="1" value={eventEdit.capacity} onChange={(e) => setEventEdit({ ...eventEdit, capacity: e.target.value })} /></Field>
@@ -666,8 +575,8 @@ export default function AdminDashboard({ http, user, onNotice, section, onSectio
               <label className="admin-checkbox"><input type="checkbox" checked={Boolean(eventEdit.is_published)} onChange={(e) => setEventEdit({ ...eventEdit, is_published: e.target.checked })} /> Published on Discover</label>
               <label className="admin-checkbox"><input type="checkbox" checked={Boolean(eventEdit.is_cancelled)} onChange={(e) => setEventEdit({ ...eventEdit, is_cancelled: e.target.checked })} /> Cancelled</label>
             </div><button className="btn btn-primary" disabled={busy}><Save size={15} />Save event</button></form>}
-            <div className="admin-table-wrap"><table className="admin-table"><thead><tr><th>Event</th><th>Organization / Dept.</th><th>Date</th><th>Registrations</th><th>Status</th><th>Actions</th></tr></thead><tbody>
-              {events.map((event) => <tr key={event.id}><td><b>{event.title}</b><small>{event.venue}</small></td><td>{event.organizer?.name || "—"}<small>{event.organizer?.department?.code || "Unassigned"}</small></td><td>{formatDate(event.starts_at)}</td><td>{event.registrations_count || 0}</td><td>{event.deleted_at ? "Removed" : event.is_cancelled ? "Cancelled" : event.is_published ? "Published" : "Unpublished"}</td><td className="admin-row-actions"><button title="View event registrations and attendance" onClick={() => viewEvent(event)}><Eye size={15} /></button>{!event.deleted_at && <button title="Edit event" onClick={() => setEventEdit(event)}><Pencil size={15} /></button>}{event.deleted_at ? <button title="Restore as unpublished" onClick={() => eventAction(event, "restore")}><RefreshCw size={15} /></button> : <><button title="Unpublish event" onClick={() => eventAction(event, "unpublish")}><X size={15} /></button><button title="Remove event" onClick={() => eventAction(event, "delete")}><Trash2 size={15} /></button></>}</td></tr>)}
+            <div className="admin-table-wrap"><table className="admin-table"><thead><tr><th>Event</th><th>Department</th><th>Date</th><th>Registrations</th><th>Status</th><th>Actions</th></tr></thead><tbody>
+              {events.map((event) => <tr key={event.id}><td><b>{event.title}</b><small>{event.venue}</small></td><td>{event.organizer?.department?.name || "Unassigned"}<small>{event.organizer?.department?.code || "—"}</small></td><td>{formatDate(event.starts_at)}</td><td>{event.registrations_count || 0}</td><td>{event.deleted_at ? "Removed" : event.is_cancelled ? "Cancelled" : event.is_published ? "Published" : "Unpublished"}</td><td className="admin-row-actions"><button title="View event registrations and attendance" onClick={() => viewEvent(event)}><Eye size={15} /></button>{!event.deleted_at && <button title="Edit event" onClick={() => setEventEdit(event)}><Pencil size={15} /></button>}{event.deleted_at ? <button title="Restore as unpublished" onClick={() => eventAction(event, "restore")}><RefreshCw size={15} /></button> : <><button title="Unpublish event" onClick={() => eventAction(event, "unpublish")}><X size={15} /></button><button title="Remove event" onClick={() => eventAction(event, "delete")}><Trash2 size={15} /></button></>}</td></tr>)}
             </tbody></table>{!events.length && <p className="dashboard-empty">No events match these filters.</p>}</div>
             {eventDetail && <section className="dashboard-panel admin-detail-panel"><div className="admin-form-heading"><div><h2>{eventDetail.title}</h2><p>{eventDetail.organizer?.name || "Organization"} · {formatDate(eventDetail.starts_at)} · {eventDetail.venue}</p></div><button type="button" aria-label="Close event details" onClick={() => setEventDetail(null)}><X size={18} /></button></div><p>{eventDetail.description}</p><div className="admin-detail-summary"><span>{eventDetail.registrations_count || 0} registrations</span><span>{eventDetail.attendance_count || 0} check-ins</span><span>{eventDetail.deleted_at ? "Removed" : eventDetail.is_cancelled ? "Cancelled" : eventDetail.is_published ? "Published" : "Unpublished"}</span></div><h3>Registration and attendance records</h3>{eventDetail.rsvps?.length ? <div className="admin-table-wrap"><table className="admin-table"><thead><tr><th>Attendee</th><th>Email</th><th>Registration</th><th>Attendance</th><th>Checked in</th></tr></thead><tbody>{eventDetail.rsvps.map((rsvp) => <tr key={rsvp.id}><td>{rsvp.user?.name || "Deleted account"}</td><td>{rsvp.user?.email || "—"}</td><td>{rsvp.status}</td><td>{rsvp.checked_in_at ? "Present" : "Not checked in"}</td><td>{formatDate(rsvp.checked_in_at)}</td></tr>)}</tbody></table></div> : <p>No registration records.</p>}</section>}
             <div className="admin-pagination">
@@ -705,7 +614,6 @@ export default function AdminDashboard({ http, user, onNotice, section, onSectio
               <Field label="From"><input type="date" value={analyticsFilters.from} onChange={(e) => setAnalyticsFilters({ ...analyticsFilters, from: e.target.value })} /></Field>
               <Field label="To"><input type="date" value={analyticsFilters.to} onChange={(e) => setAnalyticsFilters({ ...analyticsFilters, to: e.target.value })} /></Field>
               <select value={analyticsFilters.department_id} onChange={(e) => setAnalyticsFilters({ ...analyticsFilters, department_id: e.target.value })}><option value="">All departments</option>{departments.map((d) => <option key={d.id} value={d.id}>{d.code}</option>)}</select>
-              <select value={analyticsFilters.organization_id} onChange={(e) => setAnalyticsFilters({ ...analyticsFilters, organization_id: e.target.value })}><option value="">All organizations</option>{organizations.map((o) => <option key={o.id} value={o.id}>{o.name}</option>)}</select>
             </div>
             <div className="dashboard-stats admin-stats-grid">
               <Stat label="Students" value={analytics?.totals.students} icon={Users} />
@@ -718,7 +626,7 @@ export default function AdminDashboard({ http, user, onNotice, section, onSectio
             <div className="admin-analytics-grid">
               <section className="dashboard-panel"><h2>Events per department</h2>{analytics?.events_per_department?.map((row) => <div className="admin-bar-row" key={row.department_id || "none"}><span>{row.code || "Unassigned"}</span><b>{row.events_count}</b><i style={{ width: `${Math.min(100, Number(row.events_count) * 10)}%` }} /></div>)}</section>
               <section className="dashboard-panel"><h2>Most attended events</h2>{analytics?.most_attended_events?.map((event) => <p className="admin-list-row" key={event.id}><b>{event.title}</b><span>{event.attendance_count || 0} check-ins</span></p>)}</section>
-              <section className="dashboard-panel"><h2>Organization activity</h2>{analytics?.organization_activity?.map((org) => <p className="admin-list-row" key={org.id}><b>{org.name}</b><span>{org.events_count} events · {org.department?.code || "Unassigned"}</span></p>)}</section>
+              <section className="dashboard-panel"><h2>Department activity</h2>{analytics?.department_activity?.map((department) => <p className="admin-list-row" key={department.department_id || "none"}><b>{department.name || "Unassigned"}</b><span>{department.events_count} published events · {department.code || "No code"}</span></p>)}</section>
             </div>
           </>
         )}
@@ -743,7 +651,7 @@ export default function AdminDashboard({ http, user, onNotice, section, onSectio
               <label className="notification-preference"><input type="checkbox" checked={settings.campus_announcements_enabled} onChange={(e) => setSettings({ ...settings, campus_announcements_enabled: e.target.checked })} /><span><b>Announcement notifications</b><small>Deliver database notifications to matching students and faculty.</small></span></label>
               <button className="btn btn-primary" disabled={busy}><Save size={15} />Save settings</button>
             </form>
-            <section className="dashboard-panel admin-permission-summary"><h2>User permissions</h2><p>Role boundaries are enforced by the API and are not user-editable settings.</p><div className="admin-detail-list"><p><b>Admin</b><span>Full system management and reporting access.</span></p><p><b>Faculty</b><span>Assigned department and organization access only.</span></p><p><b>Organizer / Officer</b><span>Manage events and announcements for assigned organizations.</span></p><p><b>Student</b><span>Discover and RSVP to public events; receive announcements for their department.</span></p></div></section>
+            <section className="dashboard-panel admin-permission-summary"><h2>User permissions</h2><p>Role boundaries are enforced by the API and are not user-editable settings.</p><div className="admin-detail-list"><p><b>Admin</b><span>Full system management and reporting access.</span></p><p><b>Faculty</b><span>May join one department without approval.</span></p><p><b>Organizer</b><span>Review student membership requests and manage events for the designated department.</span></p><p><b>Student</b><span>Discover and RSVP to public events; request membership in one department.</span></p></div></section>
           </>
         )}
       </div>

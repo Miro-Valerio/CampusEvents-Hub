@@ -74,6 +74,16 @@ class User extends Authenticatable
         return $this->hasMany(UserInvitation::class);
     }
 
+    public function departmentMembershipRequests(): HasMany
+    {
+        return $this->hasMany(DepartmentMembershipRequest::class);
+    }
+
+    public function reviewedDepartmentMembershipRequests(): HasMany
+    {
+        return $this->hasMany(DepartmentMembershipRequest::class, 'reviewed_by');
+    }
+
     public function announcements(): HasMany
     {
         return $this->hasMany(Announcement::class);

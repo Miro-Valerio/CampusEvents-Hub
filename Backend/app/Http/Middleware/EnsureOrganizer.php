@@ -12,7 +12,7 @@ class EnsureOrganizer
     public function handle(Request $request, Closure $next): Response
     {
         $user = $request->user();
-        if (! $user || ! in_array($user->role, ['organizer', 'faculty'], true)
+        if (! $user || $user->role !== 'organizer'
             || ! app(OrganizerAccess::class)->query($user)->exists()) {
             return response()->json(['message' => 'Organizer access is required.'], 403);
         }

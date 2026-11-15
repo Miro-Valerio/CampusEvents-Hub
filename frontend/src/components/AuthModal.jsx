@@ -1,10 +1,13 @@
 import React, { useEffect } from "react";
 import { CalendarDays, Loader2, X } from "lucide-react";
-import { COURSES, DEPARTMENTS } from "../constants";
+import { COURSES } from "../constants";
 
 export default function AuthModal({
   mode,
   form,
+  departments,
+  departmentsLoading,
+  departmentsError,
   onFormChange,
   onModeChange,
   onSubmit,
@@ -71,15 +74,16 @@ export default function AuthModal({
                 required
                 value={form.department}
                 onChange={(event) => onFormChange("department", event.target.value)}
-                disabled={isSubmitting}
+                disabled={isSubmitting || departmentsLoading}
               >
-                <option value="">Select your department</option>
-                {DEPARTMENTS.map((department) => (
-                  <option key={department} value={department}>
-                    {department}
+                <option value="">{departmentsLoading ? "Loading departments..." : "Select your department"}</option>
+                {departments.map((department) => (
+                  <option key={department.id} value={department.code}>
+                    {department.name} ({department.code})
                   </option>
                 ))}
               </select>
+              <small role={departmentsError ? "alert" : undefined}>{departmentsError || "Your request will be sent to the department organizer for approval."}</small>
             </label>
           )}
           {mode === "register" && (

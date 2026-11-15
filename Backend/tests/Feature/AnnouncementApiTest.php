@@ -19,15 +19,18 @@ class AnnouncementApiTest extends TestCase
      */
     private function createOrganizer(string $email = 'organizer@example.com'): array
     {
-        $department = Department::query()->where('code', 'CCS')->firstOrFail();
-        $user = User::factory()->create(['email' => $email, 'department' => $department->code]);
-        $user->role = 'organizer';
-        $user->save();
+        $department = Department::query()->whereNull('organizer_user_id')->orderBy('id')->firstOrFail();
+        $user = User::factory()->create([
+            'email' => $email,
+            'role' => 'organizer',
+            'department' => $department->code,
+        ]);
         $organizer = $user->organizer()->create([
             'name' => 'Test Organization',
             'description' => 'Organization description',
             'department_id' => $department->id,
         ]);
+        $department->update(['organizer_user_id' => $user->id]);
 
         return [$user, $organizer];
     }

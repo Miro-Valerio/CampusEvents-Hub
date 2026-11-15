@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from "react";
-import { Bell, Camera, Save, UserRound } from "lucide-react";
+import { Bell, Building2, Camera, Save, UserRound } from "lucide-react";
 import { COURSES } from "../constants";
 
 const defaultPreferences = {
@@ -18,6 +18,9 @@ export default function UserSettingsView({ http, user, onUserChange, onNotice })
   const [photo, setPhoto] = useState(null);
   const [preferences, setPreferences] = useState(defaultPreferences);
   const [loadingPreferences, setLoadingPreferences] = useState(true);
+  const [membership, setMembership] = useState(null);
+  const [departmentId, setDepartmentId] = useState("");
+  const [membershipLoading, setMembershipLoading] = useState(true);
   const [busy, setBusy] = useState("");
   const [error, setError] = useState("");
   const [photoPreview, setPhotoPreview] = useState(user.profile_photo_url || "");
@@ -48,6 +51,25 @@ export default function UserSettingsView({ http, user, onUserChange, onNotice })
       })
       .finally(() => {
         if (active) setLoadingPreferences(false);
+      });
+    return () => {
+      active = false;
+    };
+  }, [http]);
+
+  useEffect(() => {
+    let active = true;
+    http.get("/department-membership")
+      .then(({ data }) => {
+        if (!active) return;
+        setMembership(data);
+        setDepartmentId(String(data.pending_request?.department_id || data.current_department?.id || ""));
+      })
+      .catch((requestError) => {
+        if (active) setError(errorMessage(requestError));
+      })
+      .finally(() => {
+        if (active) setMembershipLoading(false);
       });
     return () => {
       active = false;
@@ -111,6 +133,30 @@ export default function UserSettingsView({ http, user, onUserChange, onNotice })
     }
   };
 
+  const updateMembership = async (event) => {
+    event.preventDefault();
+    if (!departmentId) return;
+    setBusy("membership");
+    setError("");
+    try {
+      const payload = { department_id: Number(departmentId) };
+      if (user.role === "student") {
+        await http.post("/department-membership-requests", payload);
+        onNotice("Your department membership request was submitted.");
+      } else {
+        const { data } = await http.put("/department-membership", payload);
+        onUserChange(data.data);
+        onNotice("You joined the department.");
+      }
+      const { data } = await http.get("/department-membership");
+      setMembership(data);
+    } catch (requestError) {
+      setError(errorMessage(requestError));
+    } finally {
+      setBusy("");
+    }
+  };
+
   return (
     <section className="events-section user-settings">
       <div className="section-heading">
@@ -148,7 +194,6 @@ export default function UserSettingsView({ http, user, onUserChange, onNotice })
           </label>
           {user.role === "student" && (
             <>
-              <p className="assigned-department">Assigned department: <b>{user.department || "Not assigned"}</b>. Contact an administrator if this needs correction.</p>
               <label>
                 Course
                 <select value={course} onChange={(event) => setCourse(event.target.value)}>
@@ -162,6 +207,29 @@ export default function UserSettingsView({ http, user, onUserChange, onNotice })
             <Save size={15} /> {busy === "profile" ? "Saving..." : "Save profile"}
           </button>
         </form>
+
+        {["student", "faculty"].includes(user.role) && (
+          <form className="settings-card" onSubmit={updateMembership}>
+            <div className="settings-card-heading">
+              <Building2 size={19} />
+              <div><h3>Department membership</h3><p>{user.role === "student" ? "Choose one department and request to join; its organizer must approve." : "Choose the department you belong to. Faculty membership takes effect immediately."}</p></div>
+            </div>
+            <p className="assigned-department">Current department: <b>{membership?.current_department?.name || "None"}</b></p>
+            {membership?.pending_request && <p className="assigned-department">Pending request: <b>{membership.pending_request.department?.name || "Department"}</b></p>}
+            <label>
+              Department
+              <select required value={departmentId} disabled={membershipLoading || busy === "membership"} onChange={(event) => setDepartmentId(event.target.value)}>
+                <option value="">{membershipLoading ? "Loading departments..." : "Select a department"}</option>
+                {(membership?.departments || []).map((department) => (
+                  <option key={department.id} value={department.id}>{department.name} ({department.code})</option>
+                ))}
+              </select>
+            </label>
+            <button className="btn btn-primary" type="submit" disabled={membershipLoading || busy === "membership" || !departmentId || (!membership?.pending_request && departmentId === String(membership?.current_department?.id || ""))}>
+              <Save size={15} /> {busy === "membership" ? "Saving..." : user.role === "student" ? "Request to join" : "Join department"}
+            </button>
+          </form>
+        )}
 
         <form className="settings-card" onSubmit={savePreferences}>
           <div className="settings-card-heading">

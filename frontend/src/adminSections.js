@@ -1,6 +1,5 @@
 import {
   BarChart3,
-  Building2,
   CalendarDays,
   ClipboardList,
   Flag,
@@ -14,7 +13,6 @@ import {
 const ADMIN_SECTIONS = [
   ["overview", "Dashboard", LayoutDashboard],
   ["users", "User Management", Users],
-  ["organizations", "Organizations", Building2],
   ["departments", "Colleges / Departments", Landmark],
   ["events", "Event Management", CalendarDays],
   ["announcements", "Announcements", Megaphone],

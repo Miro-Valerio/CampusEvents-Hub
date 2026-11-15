@@ -3,6 +3,7 @@
 namespace Tests\Feature;
 
 use App\Models\Event;
+use App\Models\Department;
 use App\Models\Organizer;
 use App\Models\Rsvp;
 use App\Models\User;
@@ -25,13 +26,18 @@ class EventReminderAndCheckInTest extends TestCase
 
     private function createOrganizer(string $email = 'organizer@example.com'): array
     {
-        $user = User::factory()->create(['email' => $email]);
-        $user->role = 'organizer';
-        $user->save();
+        $department = Department::query()->whereNull('organizer_user_id')->orderBy('id')->firstOrFail();
+        $user = User::factory()->create([
+            'email' => $email,
+            'role' => 'organizer',
+            'department' => $department->code,
+        ]);
         $organizer = $user->organizer()->create([
             'name' => 'Test Organization',
             'description' => 'Organization description',
+            'department_id' => $department->id,
         ]);
+        $department->update(['organizer_user_id' => $user->id]);
 
         return [$user, $organizer];
     }

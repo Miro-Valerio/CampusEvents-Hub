@@ -4,7 +4,7 @@ namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
 use App\Mail\UserInvitationMail;
-use App\Models\Organizer;
+use App\Models\Department;
 use App\Models\User;
 use App\Models\UserInvitation;
 use App\Services\AdminActivityLogger;
@@ -35,7 +35,10 @@ class AdminUserController extends Controller
             ->with([
                 'departmentRecord:id,code,name',
                 'organizer:id,user_id,name,department_id',
-                'organizations:id,name,department_id',
+                'departmentMembershipRequests' => fn ($query) => $query
+                    ->where('status', 'pending')
+                    ->with('department:id,code,name')
+                    ->latest(),
                 'invitations' => fn ($query) => $query->latest()->limit(1),
             ])
             ->when($data['role'] ?? null, fn ($query, $role) => $query->where('role', $role))
@@ -59,21 +62,12 @@ class AdminUserController extends Controller
             'role' => ['required', Rule::in(self::ROLES)],
             'department' => ['required_unless:role,admin', 'nullable', 'exists:departments,code'],
             'course' => ['nullable', 'string', 'max:100'],
-            'organization_id' => ['nullable', 'integer', 'exists:organizers,id'],
         ]);
         if (isset($data['department']) && ! DB::table('departments')->where('code', $data['department'])->where('is_active', true)->exists()) {
             return response()->json(['message' => 'Select an active department.'], 422);
         }
-        if (($data['role'] ?? null) === 'organizer' && empty($data['organization_id'])) {
-            return response()->json(['message' => 'Organizer accounts must be assigned to an organization.'], 422);
-        }
-        $organization = isset($data['organization_id']) ? Organizer::query()->findOrFail($data['organization_id']) : null;
-        if ($organization && (! $organization->is_active || $organization->department?->code !== ($data['department'] ?? null))) {
-            return response()->json(['message' => 'The organization must be active and in the selected department.'], 422);
-        }
-
-        $user = DB::transaction(function () use ($data, $organization): User {
-            $user = User::create([
+        $user = DB::transaction(function () use ($data): User {
+            return User::create([
                 'name' => $data['name'],
                 'email' => $data['email'],
                 'password' => Str::random(64),
@@ -82,14 +76,6 @@ class AdminUserController extends Controller
                 'course' => $data['role'] === 'student' ? ($data['course'] ?? null) : null,
                 'is_active' => false,
             ]);
-            if ($organization) {
-                $organization->members()->attach($user->id, ['membership_role' => 'officer']);
-                if ($data['role'] === 'organizer' && ! $organization->user_id) {
-                    $organization->user()->associate($user)->save();
-                }
-            }
-
-            return $user;
         });
 
         $activity->record($request->user(), 'user.created', 'user', $user->id, "Created {$user->role} account {$user->email}.", [
@@ -107,7 +93,7 @@ class AdminUserController extends Controller
             ], Response::HTTP_BAD_GATEWAY);
         }
 
-        return response()->json(['data' => $user->load(['departmentRecord', 'organizations'])], 201);
+        return response()->json(['data' => $user->load('departmentRecord')], 201);
     }
 
     public function show(User $user): JsonResponse
@@ -115,7 +101,6 @@ class AdminUserController extends Controller
         return response()->json(['data' => $user->load([
             'departmentRecord',
             'organizer',
-            'organizations.department',
             'invitations' => fn ($query) => $query->latest()->limit(5),
         ])]);
     }
@@ -151,22 +136,20 @@ class AdminUserController extends Controller
             return response()->json(['message' => 'The last active admin account cannot be deactivated or demoted.'], 422);
         }
         $roleAfterUpdate = $data['role'] ?? $user->role;
+        $departmentOrganizer = Department::query()->where('organizer_user_id', $user->id)->exists();
+        if ($departmentOrganizer && (
+            $roleAfterUpdate !== 'organizer'
+            || (array_key_exists('is_active', $data) && ! $data['is_active'])
+            || (array_key_exists('department', $data) && $data['department'] !== $user->department)
+        )) {
+            return response()->json([
+                'message' => 'Assign another organizer to this department before changing or deactivating this account.',
+            ], 422);
+        }
         if ($roleAfterUpdate !== 'admin'
             && array_key_exists('department', $data)
             && $data['department'] === null) {
             return response()->json(['message' => 'Assign a department to this account.'], 422);
-        }
-        if (array_key_exists('department', $data) && $data['department'] !== $user->department
-            && $user->organizations()->where(function ($organizations) use ($data): void {
-                $organizations->whereNull('department_id')
-                    ->orWhereHas('department', fn ($department) => $department->where('code', '!=', $data['department']));
-            })->exists()) {
-            return response()->json(['message' => 'Reassign this user’s organizations before changing their department.'], 422);
-        }
-        if ($roleAfterUpdate === 'organizer'
-            && ! $user->organizer()->exists()
-            && ! $user->organizations()->exists()) {
-            return response()->json(['message' => 'Assign an organization before changing this account to organizer.'], 422);
         }
         if ($roleAfterUpdate !== 'admin' && ! ($data['department'] ?? $user->department)) {
             return response()->json(['message' => 'Assign a department to this account.'], 422);
@@ -180,8 +163,7 @@ class AdminUserController extends Controller
         if (! $user->is_active) {
             $user->tokens()->delete();
         }
-        if (! in_array($user->role, ['organizer', 'faculty'], true)) {
-            $user->organizations()->detach();
+        if ($user->role !== 'organizer') {
             $user->organizer()->update(['user_id' => null]);
         }
         $activity->record($request->user(), 'user.updated', 'user', $user->id, "Updated account {$user->email}.", [
@@ -189,7 +171,7 @@ class AdminUserController extends Controller
             'after' => $user->only(array_keys($old)),
         ]);
 
-        return response()->json(['data' => $user->fresh()->load(['departmentRecord', 'organizer', 'organizations'])]);
+        return response()->json(['data' => $user->fresh()->load(['departmentRecord', 'organizer'])]);
     }
 
     public function deactivate(Request $request, User $user, AdminActivityLogger $activity): JsonResponse
@@ -197,6 +179,9 @@ class AdminUserController extends Controller
         if ($user->is($request->user()) || ($user->role === 'admin'
             && User::query()->where('role', 'admin')->where('is_active', true)->count() <= 1)) {
             return response()->json(['message' => 'This account cannot be deactivated because it is the current or last active administrator.'], 422);
+        }
+        if (Department::query()->where('organizer_user_id', $user->id)->exists()) {
+            return response()->json(['message' => 'Assign another organizer to this department before deactivating this account.'], 422);
         }
 
         $user->forceFill(['is_active' => false])->save();

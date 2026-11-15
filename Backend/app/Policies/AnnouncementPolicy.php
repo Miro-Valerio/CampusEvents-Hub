@@ -4,6 +4,7 @@ namespace App\Policies;
 
 use App\Models\Announcement;
 use App\Models\User;
+use App\Services\OrganizerAccess;
 
 class AnnouncementPolicy
 {
@@ -24,9 +25,8 @@ class AnnouncementPolicy
 
     private function owns(User $user, Announcement $announcement): bool
     {
-        return in_array($user->role, ['organizer', 'faculty'], true)
+        return $user->role === 'organizer'
             && $announcement->organizer_id !== null
-            && ($user->organizations()->whereKey($announcement->organizer_id)->exists()
-                || $user->organizer()->whereKey($announcement->organizer_id)->exists());
+            && app(OrganizerAccess::class)->query($user)->whereKey($announcement->organizer_id)->exists();
     }
 }

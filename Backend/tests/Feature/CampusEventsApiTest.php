@@ -4,6 +4,7 @@ namespace Tests\Feature;
 
 use App\Models\Event;
 use App\Models\EventReport;
+use App\Models\Department;
 use App\Models\Organizer;
 use App\Models\Rsvp;
 use App\Models\User;
@@ -20,13 +21,18 @@ class CampusEventsApiTest extends TestCase
 
     private function createOrganizer(string $email = 'organizer@example.com'): array
     {
-        $user = User::factory()->create(['email' => $email]);
-        $user->role = 'organizer';
-        $user->save();
+        $department = Department::query()->whereNull('organizer_user_id')->orderBy('id')->firstOrFail();
+        $user = User::factory()->create([
+            'email' => $email,
+            'role' => 'organizer',
+            'department' => $department->code,
+        ]);
         $organizer = $user->organizer()->create([
             'name' => 'Test Organization',
             'description' => 'Organization description',
+            'department_id' => $department->id,
         ]);
+        $department->update(['organizer_user_id' => $user->id]);
 
         return [$user, $organizer];
     }
@@ -99,13 +105,13 @@ class CampusEventsApiTest extends TestCase
             ->assertCreated()
             ->assertJsonPath('user.email', 'campus.student@example.com')
             ->assertJsonPath('user.role', 'student')
-            ->assertJsonPath('user.department', 'CCS')
+            ->assertJsonPath('user.department', null)
             ->assertJsonMissingPath('user.password')
             ->assertJsonPath('token', fn (string $token): bool => $token !== '');
 
         $this->assertDatabaseHas('users', [
             'email' => 'campus.student@example.com',
-            'department' => 'CCS',
+            'department' => null,
         ]);
         $this->assertDatabaseHas('personal_access_tokens', [
             'tokenable_id' => $response->json('user.id'),
@@ -211,47 +217,14 @@ class CampusEventsApiTest extends TestCase
         ));
     }
 
-    public function test_admin_can_create_and_promote_department_organizers(): void
+    public function test_legacy_admin_organizer_creation_routes_are_removed(): void
     {
         $admin = User::factory()->create();
         $admin->forceFill(['role' => 'admin'])->save();
         $token = $admin->createToken('feature-test')->plainTextToken;
-        $student = User::factory()->create(['department' => 'CCS']);
-
         $this->withToken($token)
-            ->postJson('/api/admin/organizers', [
-                'name' => 'CCS Faculty',
-                'email' => 'ccs.faculty@example.com',
-                'password' => 'temporary-password-12',
-                'department' => 'CCS',
-                'organization_name' => 'CCS Department',
-                'description' => 'CCS department events.',
-            ])
-            ->assertCreated()
-            ->assertJsonPath('data.role', 'organizer')
-            ->assertJsonPath('data.organizer.name', 'CCS Department');
-
-        $this->assertDatabaseHas('users', [
-            'email' => 'ccs.faculty@example.com',
-            'role' => 'organizer',
-            'department' => 'CCS',
-        ]);
-
-        $this->withToken($token)
-            ->putJson("/api/admin/users/{$student->id}/promote", [
-                'department' => 'CCS',
-                'organization_name' => 'CCS Student Officers',
-                'description' => 'CCS student officers.',
-            ])
-            ->assertOk()
-            ->assertJsonPath('data.role', 'organizer')
-            ->assertJsonPath('data.organizer.name', 'CCS Student Officers');
-
-        $this->assertDatabaseHas('users', [
-            'id' => $student->id,
-            'role' => 'organizer',
-            'department' => 'CCS',
-        ]);
+            ->postJson('/api/admin/organizers', [])
+            ->assertNotFound();
     }
 
     public function test_admin_can_review_event_reports(): void
@@ -838,7 +811,7 @@ class CampusEventsApiTest extends TestCase
 
         $this->getJson('/api/organizers')
             ->assertOk()
-            ->assertJsonCount(7, 'data')
+            ->assertJsonCount(5, 'data')
             ->assertJsonMissing(['name' => 'IT Student Organization'])
             ->assertJsonMissing(['name' => 'Arts & Culture Guild']);
 
@@ -865,12 +838,12 @@ class CampusEventsApiTest extends TestCase
             'organizer_id' => $ccsOrganizerId,
         ]);
 
-        $organizer = Organizer::where('name', 'SPC Student Affairs')->firstOrFail();
+        $organizer = Organizer::where('name', 'College of Computer Studies (CCS)')->firstOrFail();
+        $departmentName = $organizer->department->name;
         $this->getJson("/api/organizers/{$organizer->id}")
             ->assertOk()
-            ->assertJsonPath('name', 'SPC Student Affairs')
-            ->assertJsonCount(3, 'events')
-            ->assertJsonCount(1, 'past_events');
+            ->assertJsonPath('name', $departmentName)
+            ->assertJsonFragment(['title' => 'Web Development Workshop']);
     }
 
     public function test_past_events_archive_has_photos(): void

@@ -101,12 +101,13 @@ http.interceptors.request.use((config) => {
 });
 const prettyDate = (value) =>
   new Date(value).toLocaleString([], { dateStyle: "medium", timeStyle: "short" });
+const isDesignatedOrganizer = (account) =>
+  account?.role === "organizer"
+  && Number(account.department_record?.organizer_user_id) === Number(account.id)
+  && Boolean(account.organizer);
 const userHomeView = (account) => {
   if (account?.role === "admin") return "admin-dashboard";
-  if (
-    ["organizer", "faculty"].includes(account?.role)
-    && (account.organizer || account.organizations?.length)
-  ) {
+  if (isDesignatedOrganizer(account)) {
     return "dashboard";
   }
   return "discover";
@@ -179,6 +180,9 @@ function App() {
   const [authSubmitting, setAuthSubmitting] = useState(false);
   const [loggingOut, setLoggingOut] = useState(false);
   const [user, setUser] = useState(readCachedUser);
+  const [departmentOptions, setDepartmentOptions] = useState([]);
+  const [departmentsLoading, setDepartmentsLoading] = useState(true);
+  const [departmentsError, setDepartmentsError] = useState("");
   const [authChecking, setAuthChecking] = useState(
     () => Boolean(localStorage.getItem(tokenKey) && !readCachedUser()),
   );
@@ -195,6 +199,26 @@ function App() {
     department: "",
     course: "",
   });
+
+  useEffect(() => {
+    let active = true;
+    http.get("/departments")
+      .then(({ data }) => {
+        if (active) setDepartmentOptions(data.data || []);
+      })
+      .catch(() => {
+        if (active) {
+          setDepartmentOptions([]);
+          setDepartmentsError("Department options could not be loaded. Refresh the page and try again.");
+        }
+      })
+      .finally(() => {
+        if (active) setDepartmentsLoading(false);
+      });
+    return () => {
+      active = false;
+    };
+  }, []);
 
   const showError = (message, retry = null) => {
     setError(message);
@@ -396,10 +420,7 @@ function App() {
 
   // ---------- navigation ----------
   const go = (target, needsLogin = false) => {
-    if (target === "dashboard" && (
-      !["organizer", "faculty"].includes(user?.role)
-      || (!user?.organizer && !user?.organizations?.length)
-    )) {
+    if (target === "dashboard" && !isDesignatedOrganizer(user)) {
       target = "discover";
     }
     if (target === "admin-dashboard" && user?.role !== "admin") {
@@ -419,10 +440,7 @@ function App() {
     if (target === "organizers") loadOrganizers();
   };
   useEffect(() => {
-    if (view === "dashboard" && user && (
-      !["organizer", "faculty"].includes(user.role)
-      || (!user.organizer && !user.organizations?.length)
-    )) {
+    if (view === "dashboard" && user && !isDesignatedOrganizer(user)) {
       setView(userHomeView(user));
     }
     if (view === "admin-dashboard" && user && user.role !== "admin") {
@@ -487,7 +505,9 @@ function App() {
       setView(userHomeView(data.user));
       setSelected(null);
       setAuthOpen(false);
-      showNotice(`Welcome${data.user?.name ? `, ${data.user.name}` : ""}!`);
+      showNotice(data.department_request
+        ? "Account created. Your department request is pending organizer approval."
+        : `Welcome${data.user?.name ? `, ${data.user.name}` : ""}!`);
       await Promise.all([loadMyLists(), loadNotifications(), loadAnnouncements()]);
     } catch (err) {
       showError(
@@ -1015,9 +1035,6 @@ function App() {
             http={http}
             userName={user.name}
             organizer={user.organizer}
-            onProfileChange={(organizer) =>
-              setUser((current) => ({ ...current, organizer }))
-            }
             onNotice={showNotice}
           />
         )}
@@ -1121,6 +1138,9 @@ function App() {
         <AuthModal
           mode={authMode}
           form={authForm}
+          departments={departmentOptions}
+          departmentsLoading={departmentsLoading}
+          departmentsError={departmentsError}
           onFormChange={(field, value) => setAuthForm((cur) => ({ ...cur, [field]: value }))}
           onModeChange={setAuthMode}
           onSubmit={loginOrRegister}
