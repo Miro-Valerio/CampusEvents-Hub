@@ -832,10 +832,9 @@ class CampusEventsApiTest extends TestCase
             'name' => 'SPC Student Affairs',
             'user_id' => User::where('email', 'organizer@spc.edu.ph')->value('id'),
         ]);
-        $this->assertDatabaseHas('organizers', [
-            'name' => 'IT Student Organization',
-            'user_id' => User::where('email', 'it.organizer@spc.edu.ph')->value('id'),
-        ]);
+        $this->assertDatabaseMissing('organizers', ['name' => 'IT Student Organization']);
+        $this->assertDatabaseMissing('organizers', ['name' => 'Arts & Culture Guild']);
+        $this->assertDatabaseMissing('users', ['email' => 'it.organizer@spc.edu.ph']);
 
         $this->getJson('/api/organizers')
             ->assertOk()
@@ -843,19 +842,34 @@ class CampusEventsApiTest extends TestCase
             ->assertJsonMissing(['name' => 'IT Student Organization'])
             ->assertJsonMissing(['name' => 'Arts & Culture Guild']);
 
-        $itOrganization = Organizer::where('name', 'IT Student Organization')->firstOrFail();
-        $this->getJson("/api/organizers/{$itOrganization->id}")
-            ->assertNotFound();
-
         $this->getJson('/api/events')
             ->assertOk()
             ->assertJsonFragment(['title' => 'Web Development Workshop']);
+
+        $ccsOrganizerId = Organizer::where('name', 'College of Computer Studies (CCS)')->value('id');
+        $studentAffairsId = Organizer::where('name', 'SPC Student Affairs')->value('id');
+        $this->assertDatabaseHas('events', [
+            'title' => 'Web Development Workshop',
+            'organizer_id' => $ccsOrganizerId,
+        ]);
+        $this->assertDatabaseHas('events', [
+            'title' => 'Hackathon: Build for Campus',
+            'organizer_id' => $ccsOrganizerId,
+        ]);
+        $this->assertDatabaseHas('events', [
+            'title' => 'Acoustic Night',
+            'organizer_id' => $studentAffairsId,
+        ]);
+        $this->assertDatabaseHas('announcements', [
+            'title' => 'BSIT capstone orientation this Friday',
+            'organizer_id' => $ccsOrganizerId,
+        ]);
 
         $organizer = Organizer::where('name', 'SPC Student Affairs')->firstOrFail();
         $this->getJson("/api/organizers/{$organizer->id}")
             ->assertOk()
             ->assertJsonPath('name', 'SPC Student Affairs')
-            ->assertJsonCount(2, 'events')
+            ->assertJsonCount(3, 'events')
             ->assertJsonCount(1, 'past_events');
     }
 

@@ -41,10 +41,6 @@ class DatabaseSeeder extends Seeder
             ['name' => 'SPC Student Affairs'],
             ['description' => 'Official student affairs announcements and campus activities.'],
         );
-        $itOrganization = Organizer::updateOrCreate(
-            ['name' => 'IT Student Organization'],
-            ['description' => 'Technology talks, workshops, and student-led events.', 'is_listed' => false],
-        );
         $collegeOrganizers = [
             [
                 'College of Computer Studies (CCS)',
@@ -84,13 +80,14 @@ class DatabaseSeeder extends Seeder
         ];
         $organizerAccounts = [
             [$studentAffairs, 'organizer@spc.edu.ph', 'SPC Organizer', null],
-            [$itOrganization, 'it.organizer@spc.edu.ph', 'IT Organizer', 'CCS'],
         ];
+        $collegeOrganizersByDepartment = [];
         foreach ($collegeOrganizers as [$name, $description, $email, $accountName, $departmentCode]) {
             $organizer = Organizer::updateOrCreate(
                 ['name' => $name],
                 ['description' => $description],
             );
+            $collegeOrganizersByDepartment[$departmentCode] = $organizer;
             $organizerAccounts[] = [$organizer, $email, $accountName, $departmentCode];
         }
         foreach ($organizerAccounts as [$organizer, $email, $name, $departmentCode]) {
@@ -114,10 +111,6 @@ class DatabaseSeeder extends Seeder
         $athletics = Organizer::updateOrCreate(
             ['name' => 'SPC Athletics Council'],
             ['description' => 'Intramurals, tournaments, and fitness activities for every student.'],
-        );
-        $arts = Organizer::updateOrCreate(
-            ['name' => 'Arts & Culture Guild'],
-            ['description' => 'Music, theater, and visual arts showcases by SPC students.', 'is_listed' => false],
         );
 
         $events = [
@@ -145,7 +138,7 @@ class DatabaseSeeder extends Seeder
                 'rules' => 'Bring a laptop if available. Register with your student email.',
                 'capacity' => 50,
                 'baseline_registered_count' => 42,
-                'organizer_id' => $itOrganization->id,
+                'organizer_id' => $collegeOrganizersByDepartment['CCS']->id,
             ],
             [
                 'title' => 'Student Organization Fair',
@@ -184,7 +177,7 @@ class DatabaseSeeder extends Seeder
                 'rules' => 'Doors open at 5:30 PM. Keep phones on silent during performances.',
                 'capacity' => 120,
                 'baseline_registered_count' => 119,
-                'organizer_id' => $arts->id,
+                'organizer_id' => $studentAffairs->id,
             ],
             [
                 'title' => 'Hackathon: Build for Campus',
@@ -197,7 +190,7 @@ class DatabaseSeeder extends Seeder
                 'rules' => 'Teams of 3 to 4. Bring your own laptop and charger.',
                 'capacity' => 60,
                 'baseline_registered_count' => 20,
-                'organizer_id' => $itOrganization->id,
+                'organizer_id' => $collegeOrganizersByDepartment['CCS']->id,
             ],
         ];
 
@@ -249,7 +242,7 @@ class DatabaseSeeder extends Seeder
                 'rules' => 'Laptops provided.',
                 'capacity' => 40,
                 'baseline_registered_count' => 38,
-                'organizer_id' => $itOrganization->id,
+                'organizer_id' => $collegeOrganizersByDepartment['CCS']->id,
             ],
         ];
 
@@ -281,7 +274,7 @@ class DatabaseSeeder extends Seeder
                 'body' => 'All BS Information Technology students are invited to the capstone orientation at Computer Laboratory 2. Bring your proposed project title and team members.',
                 'pinned' => false,
                 'course' => 'BS Information Technology',
-                'organizer_id' => $itOrganization->id,
+                'organizer_id' => $collegeOrganizersByDepartment['CCS']->id,
                 'user_id' => $itOrganizerAccount?->id,
             ],
             [
