@@ -109,7 +109,7 @@
 }
 
 .mobile-menu-wrap {
-  display: none;
+  display: block;
   position: relative;
 }
 
@@ -149,6 +149,7 @@
 }
 
 .mobile-admin-navigation {
+  display: none;
   padding-bottom: 8px;
   border-bottom: 1px solid var(--border);
 }

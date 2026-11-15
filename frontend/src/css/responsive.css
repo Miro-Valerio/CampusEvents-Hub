@@ -67,6 +67,10 @@
     display: block;
   }
 
+  .mobile-admin-navigation {
+    display: block;
+  }
+
   .user-name {
     display: none;
   }

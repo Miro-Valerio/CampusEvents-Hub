@@ -148,7 +148,7 @@ export default function AppHeader({
                     <div className="mobile-menu-section-title">
                       <ShieldCheck size={16} /> ADMINISTRATION
                     </div>
-                    {ADMIN_SECTIONS.map(([key, label, Icon]) => (
+                    {ADMIN_SECTIONS.filter(([key]) => key !== "settings").map(([key, label, Icon]) => (
                       <a
                         key={key}
                         className={view === "admin-dashboard" && adminSection === key ? "active" : ""}
