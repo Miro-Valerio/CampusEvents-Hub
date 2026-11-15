@@ -85,7 +85,7 @@ export default function AppHeader({
       <nav>
         {link("discover", "Discover")}
         {link("announcements", "Announcements")}
-        {link("organizers", "Organizers")}
+        {link("organizers", "Department")}
         {link("calendar", "Calendar")}
         {link("archive", "Archive")}
         {user?.role === "admin" && link("admin-dashboard", "Admin Dashboard", true)}
