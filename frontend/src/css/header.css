@@ -109,7 +109,7 @@
 }
 
 .mobile-menu-wrap {
-  display: block;
+  display: none;
   position: relative;
 }
 
