@@ -1,48 +1,31 @@
 <?php
-
 namespace App\Models;
-
-use Database\Factories\RsvpFactory;
-use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
-use Illuminate\Database\Eloquent\Relations\BelongsTo;
-
-class Rsvp extends Model
-{
-    public const STATUS_GOING = 'going';
-
-    public const STATUS_CANCELLED = 'cancelled';
-
-    protected $fillable = ['user_id', 'event_id', 'status', 'seat_number', 'checked_in_at'];
-
-    protected $casts = ['checked_in_at' => 'datetime'];
-
-    protected static function booted(): void
-    {
-        static::creating(function (self $rsvp): void {
-            $rsvp->check_in_code_salt ??= bin2hex(random_bytes(16));
-        });
-    }
-
-    /** @use HasFactory<RsvpFactory> */
-    use HasFactory;
-
-    public function event(): BelongsTo
-    {
-        return $this->belongsTo(Event::class);
-    }
-
-    public function user(): BelongsTo
-    {
-        return $this->belongsTo(User::class);
-    }
-
-    public function checkInCode(): string
-    {
-        return strtoupper(substr(hash_hmac(
-            'sha256',
-            $this->getKey().':'.$this->event_id.':'.$this->check_in_code_salt,
-            (string) config('app.key'),
-        ), 0, 10));
-    }
+class Rsvp extends Model {
+ protected $fillable=['event_id','user_id','seat_no','status','reminder_sent_at'];
+ protected $appends=['attendance_status'];
+ protected function casts():array{return ['reminder_sent_at'=>'datetime'];}
+ public function event(){return $this->belongsTo(Event::class);}
+ public function user(){return $this->belongsTo(User::class);}
+ public function checkin(){return $this->hasOne(EventCheckIn::class);}
+ public function getAttendanceStatusAttribute():string {
+  if($this->status!=='active')return 'Not Checked In';
+  $checkin=$this->checkin;
+  if($checkin){
+   if($checkin->verification_status===null)return 'Completed';
+   if($checkin->verification_status==='pending')return 'Pending Verification';
+   if($checkin->verification_status==='rejected')return 'Rejected';
+   if($checkin->verification_status==='verified'){
+    if(!$this->event->requires_check_out || $checkin->checked_out_at)return 'Completed';
+    if($this->event->check_out_closes_at && now()->greaterThan($this->event->check_out_closes_at))return 'Absent';
+    return 'Verified';
+   }
+  }
+  $event=$this->event;
+  if($event->status==='cancelled')return 'Not Checked In';
+  $closesAt=$event->requires_check_out&&$event->check_out_closes_at
+   ?$event->check_out_closes_at
+   :$event->ends_at;
+  return $closesAt&&now()->greaterThan($closesAt)?'Absent':'Not Checked In';
+ }
 }

@@ -1,0 +1,28 @@
+import React from 'react';
+import {Link} from 'react-router-dom';
+import {ArrowUpRight,CalendarDays,UsersRound,Sparkles,ArrowRight,Compass,BellRing,TicketCheck,Building2,ShieldCheck,ChevronRight} from 'lucide-react';
+import {useLoad,Loading,ErrorState,EmptyState} from '../components/Widgets';
+import {EventCard} from '../components/EventCard';
+export default function Landing(){
+ const {data:events,loading,error,reload}=useLoad('/events?sort=soonest');const {data:stats}=useLoad('/events/stats');
+ return <>
+ <section className="hero-shell"><div className="hero"><div className="hero-artwork" aria-hidden="true"/><div className="hero-glow" aria-hidden="true"/>
+  <div className="hero-content"><div className="hero-kicker"><span/> YOUR CAMPUS, YOUR MOMENTS</div><h1>Make campus life <em>unforgettable.</em></h1><p>Discover SPC events, meet your people, and never miss a moment that matters.</p><Link className="btn btn-hero" to="/events">Explore events <ArrowUpRight size={18}/></Link>
+  <div className="hero-stats"><div><strong>{stats?.events??'—'}</strong><span>UPCOMING EVENTS</span></div><div><strong>{stats?.departments??'—'}</strong><span>DEPARTMENTS</span></div><div><strong>100%</strong><span>CAMPUS SPIRIT</span></div></div></div>
+  <div className="hero-float float-small"><span className="float-icon"><CalendarDays size={24}/></span><span><strong>Something's happening</strong><small>Find your next campus moment</small></span><Sparkles size={19}/></div>
+  <div className="hero-float float-big"><span className="float-tag">UP NEXT AT SPC</span><span className="float-people"><UsersRound size={27}/></span><h2>Find your crowd.</h2><p>Events worth showing up for.</p><div>Campus · Community · You <Sparkles size={15}/></div></div><span className="hero-bubble">✦ Made for SPC students</span>
+ </div></section>
+ <section className="section container" id="upcoming"><div className="section-head"><div><span className="eyebrow">WHAT'S COMING UP</span><h2>Moments worth marking.</h2><p>Discover the gatherings, activities, and opportunities happening around campus.</p></div><Link to="/events" className="link-arrow">View all events <ArrowRight size={18}/></Link></div>
+ {loading?<Loading/>:error?<ErrorState message={error} retry={reload}/>:events?.data?.length?<div className="event-grid">{events.data.slice(0,3).map(e=><EventCard key={e.id} event={e}/>)}</div>:<EmptyState title="Events are on the way" description="Organizers can publish the first campus activities soon."/>}
+ </section>
+ <section className="section section-warm"><div className="container"><div className="section-head center-heading"><span className="eyebrow">SIMPLE BY DESIGN</span><h2>Every campus moment, one place.</h2><p>From discovering an event to checking in on the day, CampusEvents Hub keeps things easy.</p></div><div className="benefit-grid">
+  <div className="benefit"><div><Compass size={26}/></div><h3>Explore with ease</h3><p>Browse campus events by date, category, department, or keyword.</p></div>
+  <div className="benefit"><div><TicketCheck size={26}/></div><h3>Save your seat</h3><p>RSVP in one tap and keep track of your upcoming events and attendance.</p></div>
+  <div className="benefit"><div><BellRing size={26}/></div><h3>Stay in the loop</h3><p>Read the latest announcements and get event reminders in your notifications.</p></div>
+ </div></div></section>
+ <section className="section container"><div className="section-head"><div><span className="eyebrow">ONE CAMPUS · MANY COMMUNITIES</span><h2>Your department. Your people.</h2><p>Meet the academic communities making SPC more connected.</p></div><Link to="/departments" className="link-arrow">Discover departments <ArrowRight size={18}/></Link></div><DepartmentPreview/></section>
+ <section className="container cta-section"><div className="cta-text"><span className="eyebrow light">READY TO JOIN IN?</span><h2>Your next great campus story starts here.</h2><p>Create a student account and begin discovering everything happening at SPC.</p><Link to="/register" className="btn btn-white">Get started <ChevronRight size={17}/></Link></div><div className="cta-decoration"><CalendarDays size={116}/><span className="spark spark-1">✦</span><span className="spark spark-2">✧</span></div></section>
+ <section className="section container faq-section"><div className="section-head center-heading"><span className="eyebrow">NEED TO KNOW</span><h2>Frequently asked questions.</h2></div><div className="faq-grid"><details><summary>Do I need an account to browse events?</summary><p>No. You can view upcoming events, departments and the calendar without signing in. An account is needed to RSVP and save events.</p></details><details><summary>Who can publish an event?</summary><p>Department presidents and authorized officers can publish departmental events. Administrators can manage all events.</p></details><details><summary>How does an RSVP work?</summary><p>Open an event, select RSVP, and receive a seat number if space is available. You can cancel before the event starts.</p></details><details><summary>Can I join any department?</summary><p>Students can request membership in their registered academic department. A president or authorized officer reviews requests.</p></details></div></section>
+ </>;
+}
+function DepartmentPreview(){const {data,loading}=useLoad('/departments');if(loading)return <Loading/>;return <div className="department-preview">{(data||[]).slice(0,4).map((d,i)=><Link to={`/departments/${d.id}`} key={d.id} className="department-tile"><span className={`dept-symbol dept-symbol-${i%4}`}><Building2 size={24}/></span><div><h3>{d.name}</h3><p>{d.code} · {d.events_count} events</p></div><ArrowUpRight size={18}/></Link>)}</div>}

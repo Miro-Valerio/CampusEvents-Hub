@@ -1,157 +1,20 @@
-import React from "react";
-import {
-  ArrowUpRight,
-  Bookmark,
-  CalendarDays,
-  CalendarPlus,
-  Images,
-  MapPin,
-  Users,
-} from "lucide-react";
-import { isPast } from "../utils/ics";
-
-export default function EventCard({
-  event,
-  prettyDate,
-  isRsvped,
-  isSaved = false,
-  inCalendar = false,
-  isBusy,
-  onRsvp,
-  onSave,
-  onCalendar,
-  onOpen,
-  onOrganizer,
-  myRsvp = false,
-  canRsvp = true,
-}) {
-  const past = isPast(event);
-  const isFull = !isRsvped && event.registered_count >= event.capacity;
-  const poster = event.poster_url
-    ? `linear-gradient(180deg, transparent 30%, rgba(11,28,55,.72)), url('${event.poster_url}')`
-    : "linear-gradient(135deg, #123c76, #2f6fb5)";
-
-  return (
-    <article className="event-card">
-      <div className="poster" style={{ backgroundImage: poster }}>
-        <span className="category-tag">{event.category}</span>
-        {!myRsvp && !past && (
-          <div className="poster-actions">
-            <button
-              className={`save-btn ${isSaved ? "is-on" : ""}`}
-              title={isSaved ? "Remove bookmark" : "Bookmark event"}
-              aria-pressed={isSaved}
-              onClick={() => onSave(event)}
-            >
-              <Bookmark size={17} fill={isSaved ? "currentColor" : "none"} />
-            </button>
-            <button
-              className={`save-btn ${inCalendar ? "is-on" : ""}`}
-              title={inCalendar ? "Remove from calendar list" : "Add to calendar list"}
-              aria-pressed={inCalendar}
-              onClick={() => onCalendar(event)}
-            >
-              <CalendarPlus size={17} />
-            </button>
-          </div>
-        )}
-        <span className="poster-date">
-          <CalendarDays size={14} />
-          {new Date(event.starts_at).toLocaleDateString([], {
-            month: "short",
-            day: "numeric",
-          })}
-        </span>
-        {isFull && !past && <span className="full-badge">Full</span>}
-      </div>
-      <div className="event-card-body">
-        <button
-          className="organizer-line organizer-line-btn"
-          onClick={() => onOrganizer?.(event.organizer_id)}
-        >
-          {event.organizer?.name || "SPC Organizer"}
-        </button>
-        <h3>{event.title}</h3>
-        {event.is_cancelled && (
-          <div className="event-cancelled-notice" role="status">Event cancelled</div>
-        )}
-        <div className="event-meta">
-          <span>
-            <CalendarDays size={15} />
-            {prettyDate(event.starts_at)}
-          </span>
-          <span>
-            <MapPin size={15} />
-            {event.venue}
-          </span>
-        </div>
-        {myRsvp ? (
-          <div className="rsvp-seat-number">
-            <div className="rsvp-detail">
-              <span>Your seat</span>
-              <strong>#{event.seat_number}</strong>
-            </div>
-            <div className="rsvp-detail">
-              <span>Check-in code</span>
-              <strong className="rsvp-check-in-code">{event.check_in_code}</strong>
-            </div>
-            {event.checked_in_at && (
-              <div className="rsvp-detail rsvp-checked-in">
-                <span>Checked in</span>
-                <strong>{new Date(event.checked_in_at).toLocaleString()}</strong>
-              </div>
-            )}
-          </div>
-        ) : null}
-        <div className="seat-row">
-          <div className="seat-copy">
-            <Users size={15} />
-            <span>
-              {event.is_cancelled ? (
-                <b>Event cancelled</b>
-              ) : (
-                <><b>{event.registered_count}</b> of {event.capacity} {past ? "attended" : "going"}</>
-              )}
-            </span>
-          </div>
-          <div className="seat-track">
-            <span
-              style={{
-                width: `${Math.min(100, (event.registered_count / event.capacity) * 100)}%`,
-              }}
-            />
-          </div>
-        </div>
-        {isFull && !past && (
-          <div className="full-notice" role="status">
-            This event is full — no seats left.
-          </div>
-        )}
-        <button className="details-link" onClick={() => onOpen(event)}>
-          {past ? (
-            <>
-              View photos <Images size={16} />
-            </>
-          ) : (
-            <>
-              View event details <ArrowUpRight size={16} />
-            </>
-          )}
-        </button>
-        {!past && !event.is_cancelled && canRsvp && (
-          <button
-            className={`btn ${myRsvp || isRsvped ? "btn-outline" : "btn-primary"} full-btn rsvp-button`}
-            disabled={isBusy || isFull}
-            onClick={() => onRsvp(event)}
-          >
-            {isRsvped
-              ? "Cancel RSVP"
-              : isFull
-                ? "Event full"
-                : "RSVP · Going"}
-          </button>
-        )}
-      </div>
-    </article>
-  );
+import React from 'react';
+import {Link} from 'react-router-dom';
+import {CalendarDays,MapPin,Users,ArrowUpRight,BookOpen} from 'lucide-react';
+import {localDate,localTime} from '../lib/api';
+import {StatusBadge} from './Widgets';
+export function EventCard({event}){
+ const count=event.attendee_count??0;
+ return <article className="event-card">
+  <Link className="event-card-media" to={`/events/${event.id}`} aria-label={`View ${event.title}`}>
+   {event.poster_url?<img src={event.poster_url} alt={`${event.title} poster`} loading="lazy"/>:<div className="event-art"><BookOpen size={38}/><span>SPC CAMPUS EVENTS</span></div>}
+   <span className="category-chip">{event.category}</span>
+  </Link>
+  <div className="event-card-body"><div className="event-card-date"><CalendarDays size={15}/>{localDate(event.starts_at)} · {localTime(event.starts_at)}</div>
+   <h3><Link to={`/events/${event.id}`}>{event.title}</Link></h3>
+   <p className="event-dept">{event.department?.name||'SPC Department'}</p>
+   <div className="event-card-meta"><span><MapPin size={15}/>{event.venue}</span><span><Users size={15}/>{count} / {event.seat_limit}</span></div>
+   <div className="event-card-bottom"><StatusBadge value={event.schedule_status||event.status}/><span className="muted-small">{Math.max(0,event.seat_limit-count)} seats left</span><Link to={`/events/${event.id}`} className="text-link">Details <ArrowUpRight size={16}/></Link></div>
+  </div>
+ </article>
 }
