@@ -1,14 +1,26 @@
-import React,{useEffect,useState} from 'react';
+import React,{useEffect,useRef,useState} from 'react';
 import {Link,NavLink,useNavigate,useLocation} from 'react-router-dom';
 import {ArrowRight,Bell,Building2,CalendarDays,ChevronDown,LayoutDashboard,LogIn,LogOut,Menu,Settings2,ShieldCheck,UserRound,X} from 'lucide-react';
 import {useAuth} from '../context/AuthContext';
 import {useToast} from '../context/ToastContext';
 import {api,localDateTime} from '../lib/api';
 import {useLoad} from './Widgets';
+import '../availability.css';
+
+function getNavigationRoles(user){
+ const roleValues=[user?.role,user?.base_role,user?.department_role];
+ if(Array.isArray(user?.roles))roleValues.push(...user.roles.map(role=>typeof role==='string'?role:role?.name||role?.slug));
+ else if(typeof user?.roles==='string')roleValues.push(user.roles);
+ return new Set(roleValues.filter(role=>typeof role==='string')
+  .flatMap(role=>role.split(/[|,]/))
+  .map(role=>role.trim().toLowerCase().replace(/[\s-]+/g,'_').replace(/^(department|dept)_/,''))
+  .filter(Boolean));
+}
 
 export function Navbar(){
- const {user,logout}=useAuth(),navigate=useNavigate(),location=useLocation(),{flash}=useToast();
- const [mobile,setMobile]=useState(false),[drop,setDrop]=useState(false),[notificationDrop,setNotificationDrop]=useState(false);
+ const {user,logout,refresh}=useAuth(),navigate=useNavigate(),location=useLocation(),{flash}=useToast();
+ const [mobile,setMobile]=useState(false),[drop,setDrop]=useState(false),[notificationDrop,setNotificationDrop]=useState(false),[availabilitySaving,setAvailabilitySaving]=useState(false);
+ const lastHeartbeat=useRef(0);
  const {data:count,reload:reloadCount}=useLoad(user?'/notifications/count':null,user?.id);
  const {data:recent,loading:recentLoading,reload:reloadRecent}=useLoad(user&&notificationDrop?'/notifications?per_page=5':null,user?.id);
 
@@ -24,7 +36,62 @@ export function Navbar(){
   return()=>{clearInterval(timer);window.removeEventListener('spc-notifications-changed',refresh);};
  },[user?.id,notificationDrop,reloadCount,reloadRecent]);
 
+ useEffect(()=>{
+  if(user?.role!=='admin')return;
+  let heartbeatErrorShown=false;
+  const heartbeat=async(force=false)=>{
+   if(document.visibilityState==='hidden')return;
+   const now=Date.now();
+   if(!force&&now-lastHeartbeat.current<25000)return;
+   lastHeartbeat.current=now;
+   try{await api('/admin/presence/heartbeat',{method:'POST'});heartbeatErrorShown=false;}
+   catch(e){if(!heartbeatErrorShown){flash(`Availability heartbeat failed: ${e.message}`,'error');heartbeatErrorShown=true;}}
+  };
+  const onActivity=()=>heartbeat();
+  const onVisibility=()=>{if(document.visibilityState==='visible')heartbeat(true);};
+  heartbeat(true);
+  window.addEventListener('pointerdown',onActivity,{passive:true});
+  window.addEventListener('pointermove',onActivity,{passive:true});
+  window.addEventListener('keydown',onActivity);
+  window.addEventListener('touchstart',onActivity,{passive:true});
+  window.addEventListener('focus',onActivity);
+  document.addEventListener('visibilitychange',onVisibility);
+  return()=>{
+   window.removeEventListener('pointerdown',onActivity);
+   window.removeEventListener('pointermove',onActivity);
+   window.removeEventListener('keydown',onActivity);
+   window.removeEventListener('touchstart',onActivity);
+   window.removeEventListener('focus',onActivity);
+   document.removeEventListener('visibilitychange',onVisibility);
+  };
+ },[user?.id,user?.role,flash]);
+
  const links=[['/events','Discover'],['/announcements','Announcements'],['/departments','Departments'],['/calendar','Calendar'],['/archive','Archive']];
+ const roles=getNavigationRoles(user);
+ const isAdmin=roles.has('admin'),isPresident=roles.has('president'),isOfficer=roles.has('officer'),isFaculty=roles.has('faculty');
+ const hasOrganizerPermission=user?.officer_permissions?.some(permission=>['events','announcements','attendance'].includes(permission));
+ const canAccessOrganizer=isPresident||(isOfficer||isFaculty)&&hasOrganizerPermission;
+ const isRegularStudent=roles.has('student')&&!isAdmin&&!isPresident&&!isOfficer&&!isFaculty;
+ const dashboardMenuItem=isAdmin
+  ?<><Link to="/admin" onClick={()=>setDrop(false)}><ShieldCheck size={16}/> Admin Dashboard</Link><div className="availability-menu"><strong>Availability Status</strong><small>Current: {user?.availability_preference==='busy'?'Busy':'Online'}</small><div className="availability-options"><button type="button" aria-pressed={user?.availability_preference==='online'} disabled={availabilitySaving||user?.availability_preference==='online'} onClick={()=>setAvailability('online')}><span className="presence-dot online"/>Online</button><button type="button" aria-pressed={user?.availability_preference==='busy'} disabled={availabilitySaving||user?.availability_preference==='busy'} onClick={()=>setAvailability('busy')}><span className="presence-dot busy"/>Busy</button></div></div></>
+  :isPresident
+   ?<Link to="/organizer" onClick={()=>setDrop(false)}><Building2 size={16}/> Department Dashboard</Link>
+   :isOfficer
+    ?canAccessOrganizer&&<Link to="/organizer" onClick={()=>setDrop(false)}><Building2 size={16}/> Department Dashboard</Link>
+    :isFaculty
+     ?<><Link to="/dashboard" onClick={()=>setDrop(false)}><LayoutDashboard size={16}/> Faculty Dashboard</Link>{canAccessOrganizer&&<Link to="/organizer" onClick={()=>setDrop(false)}><Building2 size={16}/> Organizer</Link>}</>
+     :isRegularStudent
+      ?<Link to="/dashboard" onClick={()=>setDrop(false)}><LayoutDashboard size={16}/> Student Dashboard</Link>
+      :null;
+ async function setAvailability(status){
+  if(availabilitySaving)return;
+  setAvailabilitySaving(true);
+  try{
+   await api('/admin/availability',{method:'PUT',body:{status}});
+   await refresh();
+  }catch(e){flash(e.message,'error');}
+  finally{setAvailabilitySaving(false);}
+ }
  async function openNotification(notification){
   setNotificationDrop(false);
   if(!notification.read_at){
@@ -57,7 +124,7 @@ export function Navbar(){
     </div>}
    </div>
    <div className="account"><button className="account-toggle" onClick={()=>setDrop(!drop)}><span className="avatar-small">{user.photo_url?<img src={user.photo_url} alt=""/>:user.name?.[0]}</span><span className="account-name">{user.name?.split(' ')[0]}</span><ChevronDown size={14}/></button>
-    {drop&&<div className="account-menu"><div className="menu-account"><strong>{user.name}</strong><small>{user.email}</small></div>{user.role!=='admin'&&<Link to="/dashboard" onClick={()=>setDrop(false)}><LayoutDashboard size={16}/> Dashboard</Link>}{(['admin','president','officer'].includes(user.role)||(user.role==='faculty'&&user.officer_permissions?.some(permission=>['events','announcements'].includes(permission))))&&<Link to="/organizer" onClick={()=>setDrop(false)}><Building2 size={16}/> Organizer</Link>}{user.role==='admin'&&<Link to="/admin" onClick={()=>setDrop(false)}><ShieldCheck size={16}/> Admin</Link>}<Link to="/profile" onClick={()=>setDrop(false)}><UserRound size={16}/> Profile</Link><Link to="/settings" onClick={()=>setDrop(false)}><Settings2 size={16}/> Settings</Link><button onClick={async()=>{await logout();setDrop(false);navigate('/');}}><LogOut size={16}/> Log out</button></div>}
+    {drop&&<div className="account-menu"><div className="menu-account"><strong>{user.name}</strong><small>{user.email}</small></div>{dashboardMenuItem}<Link to="/profile" onClick={()=>setDrop(false)}><UserRound size={16}/> Profile</Link><Link to="/settings" onClick={()=>setDrop(false)}><Settings2 size={16}/> Settings</Link><button onClick={async()=>{await logout();setDrop(false);navigate('/');}}><LogOut size={16}/> Log out</button></div>}
    </div></>:<><Link to="/register" className="nav-register">Sign up</Link><Link to="/login" className="btn btn-login"><LogIn size={17}/> Log in</Link></>}
    <button className="mobile-toggle" onClick={()=>setMobile(!mobile)} aria-label="Toggle navigation">{mobile?<X size={24}/>:<Menu size={24}/>}</button>
   </div>

@@ -29,16 +29,21 @@ class PublicController extends Controller
             'page' => 'nullable|integer|min:1',
         ]);
 
-        $query = Event::query()->whereIn('status',['published','cancelled'])
+        $archive = $request->boolean('archive');
+        $now = now();
+        $query = Event::query()
             ->with([
                 'department:id,name,code',
             ])
             ->withCount(['rsvps as attendee_count' => fn ($q) => $q->where('status', 'active')]);
 
-        if ($request->boolean('archive')) {
-            $query->where(function ($events) {
-                $events->where('ends_at', '<', now())->orWhere('status', 'cancelled');
+        if ($archive) {
+            $query->where(function ($events) use ($now) {
+                $events->where('status', 'cancelled')
+                    ->orWhere(fn ($ended) => $ended->where('status', 'published')->where('ends_at', '<', $now));
             });
+        } else {
+            $query->where('status', 'published')->where('ends_at', '>=', $now);
         }
 
         if ($search = $request->input('search')) {
@@ -60,15 +65,26 @@ class PublicController extends Controller
             $query->whereDate('starts_at', $request->input('date'));
         }
 
-        match ($request->input('sort', 'soonest')) {
-            'newest' => $query->latest(),
-            'popular' => $query->orderByDesc('views'),
-            default => $query->orderByRaw("CASE WHEN status = 'cancelled' OR ends_at < ? THEN 2 WHEN starts_at > ? THEN 0 ELSE 1 END", [now(), now()])
-                ->orderByRaw("CASE WHEN status = 'cancelled' OR ends_at < ? THEN ends_at END DESC", [now()])
-                ->orderBy('starts_at'),
-        };
+        $sort = $request->input('sort', $archive ? 'newest' : 'soonest');
+        if ($sort === 'newest') {
+            if ($archive) {
+                $query->orderByRaw("CASE WHEN status = 'cancelled' THEN 1 ELSE 0 END")
+                    ->orderByDesc('ends_at')
+                    ->orderByDesc('created_at');
+            } else {
+                $query->latest();
+            }
+        } elseif ($sort === 'popular') {
+            $query->orderByDesc('views');
+        } elseif ($archive) {
+            $query->orderBy('ends_at')->orderByDesc('created_at');
+        } else {
+            $query->orderByRaw('CASE WHEN starts_at > ? THEN 0 ELSE 1 END', [$now])
+                ->orderBy('starts_at');
+        }
 
-        return $query->paginate(12);
+        return response()->json($query->paginate(12))
+            ->header('Cache-Control', 'no-store, private');
     }
 
     public function show(Event $event)

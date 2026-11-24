@@ -5,9 +5,45 @@ use App\Services\Hub;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\{DB,Password};
 use Illuminate\Validation\Rule;
+use Illuminate\Validation\Rules\Password as PasswordRule;
 use Illuminate\Validation\ValidationException;
 use Illuminate\Support\Str;
 class AdminController extends Controller {
+ private const PRESENCE_TIMEOUT_MINUTES = 2;
+ private const HEARTBEAT_INTERVAL_SECONDS = 30;
+
+ public function updateAvailability(Request $r){
+  $data=$r->validate(['status'=>'required|in:online,busy']);
+  $user=$r->user();
+  abort_unless($user->role==='admin',403);
+  $user->forceFill([
+   'availability_preference'=>$data['status'],
+   'last_active_at'=>now(),
+  ])->save();
+  return ['preference'=>$data['status'],'status'=>$data['status']==='online'?'Online':'Busy'];
+ }
+ public function heartbeat(Request $r){
+  $user=$r->user();
+  abort_unless($user->role==='admin',403);
+  $cutoff=now()->subSeconds(self::HEARTBEAT_INTERVAL_SECONDS);
+  User::whereKey($user->id)
+   ->where(fn($q)=>$q->whereNull('last_active_at')->orWhere('last_active_at','<=',$cutoff))
+   ->update(['last_active_at'=>now()]);
+  return response()->noContent();
+ }
+ public function adminAvailability(){
+  $activeAdmins=User::where('role','admin')->where('is_active',true)
+   ->where('last_active_at','>=',now()->subMinutes(self::PRESENCE_TIMEOUT_MINUTES))
+   ->whereHas('tokens',fn($q)=>$q->whereNull('expires_at')->orWhere('expires_at','>',now()));
+  if((clone $activeAdmins)->where('availability_preference','online')->exists()){
+   return ['status'=>'Online'];
+  }
+  if($activeAdmins->exists()){
+   return ['status'=>'Busy'];
+  }
+  return ['status'=>'Offline'];
+ }
+
  public function stats(){
   return ['students'=>User::where('role','student')->count(),'officers'=>User::whereIn('role',['officer','president'])->count(),
    'departments'=>Department::count(),'events'=>Event::count(),'upcoming'=>Event::where('status','published')->where('starts_at','>=',now())->count(),
@@ -15,11 +51,108 @@ class AdminController extends Controller {
    'announcements'=>Announcement::count()];
  }
  public function allEvents(){return Event::with(['department:id,name,code'])->withCount(['rsvps as attendee_count'=>fn($q)=>$q->where('status','active')])->latest()->get();}
+ public function destroyEvent(Request $r,Event $event){
+  $event->delete();
+  Hub::log($r->user(),'event.deleted','event',$event->id);
+  return ['message'=>'Event removed from listings. RSVP and attendance history has been preserved.'];
+ }
  public function allAnnouncements(){return Announcement::with(['department:id,name,code'])->latest()->get();}
  public function users(Request $r){
+  $filters=$r->validate([
+   'role'=>'nullable|in:student,faculty,leadership,admin',
+   'year_level'=>['nullable',Rule::in(['1st Year','2nd Year','3rd Year','4th Year'])],
+   'search'=>'nullable|string|max:200',
+  ]);
   $q=User::with(['department:id,name,code']);
-  if($r->filled('search'))$q->where(fn($s)=>$s->where('name','like','%'.$r->search.'%')->orWhere('email','like','%'.$r->search.'%'));
-  return $q->orderBy('name')->paginate(30);
+  if(($filters['role']??null)==='leadership')$q->whereIn('role',['president','officer']);
+  elseif(!empty($filters['role']))$q->where('role',$filters['role']);
+  if(!empty($filters['year_level']))$q->where('year_level',$filters['year_level']);
+  if(!empty($filters['search']))$q->where(fn($s)=>$s->where('name','like','%'.$filters['search'].'%')->orWhere('email','like','%'.$filters['search'].'%'));
+  $primaryAdminId=User::where('role','admin')->orderBy('id')->value('id');
+  $activeAdminCount=User::where('role','admin')->where('is_active',true)->count();
+  $users=$q->orderBy('name')->paginate(30);
+  $users->getCollection()->transform(function(User $user)use($primaryAdminId,$activeAdminCount){
+   $isPrimaryAdmin=$primaryAdminId!==null&&(int)$user->id===(int)$primaryAdminId;
+   $user->setAttribute('is_primary_admin',$user->role==='admin'&&$isPrimaryAdmin);
+   $user->setAttribute('is_protected_admin',$user->role==='admin'
+    &&($isPrimaryAdmin||($user->is_active&&$activeAdminCount===1)));
+   return $user;
+  });
+  return $users;
+ }
+ public function courses(Request $r){
+  $data=$r->validate(['department_id'=>'required|exists:departments,id']);
+  return User::where('department_id',$data['department_id'])
+   ->whereNotNull('course')->whereRaw("TRIM(course) <> ''")
+   ->distinct()->orderBy('course')->pluck('course');
+ }
+ public function storeUser(Request $r){
+  $role=$r->input('role');
+  $permissions=in_array($role,['faculty','officer'],true)
+   ?($role==='faculty'?['events','announcements','attendance']:['events','announcements','attendance','members'])
+   :[];
+  $rules=[
+   'name'=>'required|string|max:120',
+   'email'=>['required','email','max:255',Rule::unique('users','email'),Rule::unique('users','pending_email')],
+   'role'=>'required|in:student,faculty,president,officer',
+   'password_setup'=>'required|in:temporary_password,email_invitation',
+   'password'=>['exclude_unless:password_setup,temporary_password','required','confirmed',PasswordRule::min(8)->mixedCase()->numbers()->symbols()],
+   'department_id'=>'required|exists:departments,id',
+   'course'=>'nullable|string|max:140|required_if:role,student',
+   'year_level'=>['nullable','required_if:role,student',Rule::in(['1st Year','2nd Year','3rd Year','4th Year'])],
+   'faculty_position'=>'nullable|string|max:120',
+  ];
+  if($permissions){
+   $rules['officer_permissions']='sometimes|array';
+   $rules['officer_permissions.*']=Rule::in($permissions);
+  }else{
+   $rules['officer_permissions']='prohibited';
+  }
+  $data=$r->validate($rules);
+  $department=Department::findOrFail($data['department_id']);
+  return DB::transaction(function()use($r,$data,$department){
+   $temporaryPassword=$data['password_setup']==='temporary_password';
+   $user=User::create([
+    'name'=>$data['name'],
+    'email'=>strtolower($data['email']),
+    'password'=>$temporaryPassword?$data['password']:Str::random(64),
+    'role'=>$data['role'],
+    'department_id'=>$department->id,
+    'course'=>$data['course']??null,
+    'year_level'=>$data['role']==='student'?($data['year_level']??null):null,
+    'faculty_position'=>$data['role']==='faculty'?($data['faculty_position']??null):null,
+    'officer_permissions'=>in_array($data['role'],['faculty','officer'],true)?array_values(array_unique($data['officer_permissions']??[])):[],
+    'is_active'=>$temporaryPassword,
+    'must_change_password'=>$temporaryPassword,
+    'activation_pending'=>!$temporaryPassword,
+    'preferences'=>['notifications_enabled'=>true,'reminders_enabled'=>true,'announcement_alerts_enabled'=>true],
+   ]);
+   if($temporaryPassword){
+    $message='User account created with a temporary password. The user must change it at first login.';
+   }else{
+    if(in_array(config('mail.default'),['log','array'],true)){
+     throw ValidationException::withMessages([
+      'password_setup'=>'Email delivery is not configured. Configure a working mailer or choose Set Temporary Password.',
+     ]);
+    }
+    try{
+     $status=Password::sendResetLink(['email'=>$user->email]);
+    }catch(\Symfony\Component\Mailer\Exception\TransportExceptionInterface $exception){
+     throw ValidationException::withMessages([
+      'password_setup'=>'The invitation email could not be delivered. Check the mail configuration and try again.',
+     ]);
+    }
+    if($status!==Password::RESET_LINK_SENT){
+     throw ValidationException::withMessages(['email'=>__($status)]);
+    }
+    $message='Invitation email sent. The account remains inactive until the recipient sets a password using the expiring link.';
+   }
+   Hub::log($r->user(),'user.created','user',$user->id,['role'=>$user->role,'department_id'=>$department->id]);
+   return response()->json([
+    'message'=>$message,
+    'user'=>$user->load(['department']),
+   ],201);
+  });
  }
  public function storeFaculty(Request $r){
   $data=$r->validate([
@@ -54,22 +187,39 @@ class AdminController extends Controller {
   abort_if($r->user()->id===$user->id && $r->has('is_active') && !$r->boolean('is_active'),422,'You cannot deactivate your own account.');
   $data=$r->validate(['name'=>'sometimes|required|string|max:120','email'=>['sometimes','required','email','max:255',Rule::unique('users','email')->ignore($user->id),Rule::unique('users','pending_email')->ignore($user->id)],
    'course'=>'sometimes|nullable|string|max:140',
+   'year_level'=>['sometimes','nullable',Rule::in(['1st Year','2nd Year','3rd Year','4th Year'])],
    'faculty_position'=>'sometimes|nullable|string|max:120',
    'department_id'=>'sometimes|nullable|exists:departments,id',
    'role'=>'sometimes|in:student,faculty,officer,president,admin',
    'is_active'=>'sometimes|boolean',
    'officer_permissions'=>'sometimes|array','officer_permissions.*'=>Rule::in(
-    $r->input('role',$user->role)==='faculty'?['events','announcements']:['events','announcements','members']
+    $r->input('role',$user->role)==='faculty'?['events','announcements','attendance']:['events','announcements','attendance','members']
    )]);
-  $previousRole=$user->role;
-  $previousDepartmentId=$user->department_id;
-  $previousPermissions=$user->officer_permissions??[];
   $role=$data['role']??$user->role;
+  if($role!=='student')$data['year_level']=null;
   $dept=array_key_exists('department_id',$data)?$data['department_id']:$user->department_id;
   if(in_array($role,['officer','president','faculty']) && !$dept)return response()->json(['message'=>'Faculty, officers, and presidents must belong to a department.'],422);
   if(!in_array($role,['officer','faculty'],true))$data['officer_permissions']=[];
   if($role!=='faculty')$data['faculty_position']=null;
-  return DB::transaction(function()use($r,$user,$data,$previousRole,$previousDepartmentId,$previousPermissions){
+  return DB::transaction(function()use($r,$user,$data){
+   $adminAccounts=User::where('role','admin')->orderBy('id')->lockForUpdate()->get(['id','is_active']);
+   $user=User::whereKey($user->id)->lockForUpdate()->firstOrFail();
+   $previousRole=$user->role;
+   $previousDepartmentId=$user->department_id;
+   $previousPermissions=$user->officer_permissions??[];
+   $role=$data['role']??$user->role;
+   $willBeActive=array_key_exists('is_active',$data)?(bool)$data['is_active']:(bool)$user->is_active;
+   $removingAdmin=$user->role==='admin'
+    &&($role!=='admin'||($user->is_active&&array_key_exists('is_active',$data)&&!$willBeActive));
+   if($removingAdmin){
+    if($adminAccounts->first()?->id===$user->id)abort(422,'The Primary Admin account cannot be deleted, deactivated, or demoted.');
+    if($user->is_active&&$adminAccounts->where('is_active',true)->count()<=1){
+     abort(422,'The last active Admin account cannot be deleted, deactivated, or demoted.');
+    }
+   }
+   if($r->user()->id===$user->id&&$role!=='admin')abort(422,'You cannot demote yourself.');
+   if($r->user()->id===$user->id&&$user->is_active&&!$willBeActive)abort(422,'You cannot deactivate your own account.');
+   if($role!=='student')$data['year_level']=null;
    $user->update($data);
    if(array_key_exists('is_active',$data) && !$data['is_active'])$user->tokens()->delete();
    $user=$user->fresh()->load(['department']);
@@ -96,8 +246,21 @@ class AdminController extends Controller {
   });
  }
  public function destroyUser(Request $r,User $user){
-  abort_if($r->user()->id===$user->id,422,'You cannot delete your own admin account.');
-  $id=$user->id;$user->delete();Hub::log($r->user(),'user.deleted','user',$id);return ['message'=>'Account deleted.'];
+  return DB::transaction(function()use($r,$user){
+   $adminAccounts=User::where('role','admin')->orderBy('id')->lockForUpdate()->get(['id','is_active']);
+   $target=User::whereKey($user->id)->lockForUpdate()->firstOrFail();
+   abort_if($r->user()->id===$target->id,422,'You cannot delete your own Admin account.');
+   if($target->role==='admin'){
+    if($adminAccounts->first()?->id===$target->id)abort(422,'The Primary Admin account cannot be deleted, deactivated, or demoted.');
+    if($target->is_active&&$adminAccounts->where('is_active',true)->count()<=1){
+     abort(422,'The last active Admin account cannot be deleted, deactivated, or demoted.');
+    }
+   }
+   $id=$target->id;
+   $target->delete();
+   Hub::log($r->user(),'user.deleted','user',$id);
+   return ['message'=>'Account deleted.'];
+  });
  }
  public function storeDepartment(Request $r){
   $data=$r->validate(['name'=>'required|string|max:150','code'=>'required|alpha_dash|max:20|unique:departments,code','description'=>'nullable|string|max:3000','email'=>'nullable|email|max:255']);

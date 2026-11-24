@@ -9,23 +9,52 @@ class StudentController extends Controller {
  public function activity(Request $r){
   $user=$r->user();
   $rsvps=Rsvp::where('user_id',$user->id)->with(['event.department','checkin'])->latest()->get();
+  foreach($rsvps as $rsvp){
+   $event=$rsvp->event;
+   $status=$rsvp->attendance_status;
+   $checkOutStillOpen=$event?->requires_check_out&&$event->check_out_closes_at&&$event->check_out_closes_at->isFuture();
+   $canPresentCode=$rsvp->status==='active'&&$event?->status==='published'
+    &&!in_array($status,['Completed','Absent','Rejected'],true)
+    &&($event->ends_at?->isFuture()||$checkOutStillOpen);
+   if($canPresentCode){
+    $rsvp->attendance_code=$this->ensureAttendanceCode($rsvp);
+   }
+  }
   $bookmarks=Event::with('department')->whereIn('id',DB::table('bookmarks')->where('user_id',$user->id)->pluck('event_id'))->get();
   $calendar=Event::with('department')->whereIn('id',DB::table('calendar_entries')->where('user_id',$user->id)->pluck('event_id'))->get();
   return ['rsvps'=>$rsvps,'bookmarks'=>$bookmarks,'calendar'=>$calendar];
+ }
+ private function ensureAttendanceCode(Rsvp $rsvp):string {
+  if($rsvp->attendance_token){
+   if(!$rsvp->attendance_code_hash){
+    $rsvp->forceFill(['attendance_code_hash'=>hash('sha256',$rsvp->attendance_token)])->save();
+   }
+   return $rsvp->attendance_token;
+  }
+  $code=strtoupper(bin2hex(random_bytes(16)));
+  $rsvp->forceFill([
+   'attendance_token'=>$code,
+   'attendance_code_hash'=>hash('sha256',$code),
+  ])->save();
+  return $code;
  }
  public function rsvp(Request $r,Event $event){
   abort_unless(in_array($r->user()->role,['student','faculty'],true),403,'Only students and Faculty can RSVP.');
   abort_unless($event->status==='published',404);
   return DB::transaction(function()use($r,$event){
    $event=Event::whereKey($event->id)->lockForUpdate()->firstOrFail();
-   abort_unless($event->status==='published' && $event->starts_at->isFuture(),422,'This event is not open for RSVP.');
+   abort_unless($event->status==='published' && $event->starts_at->isFuture() && $event->ends_at->isFuture(),422,'This event is ended or not open for RSVP.');
    $existing=Rsvp::where('event_id',$event->id)->where('user_id',$r->user()->id)->first();
-   if($existing?->status==='active')return response()->json(['message'=>'You already RSVP’d for this event.','rsvp'=>$existing],422);
+   if($existing?->status==='active'){
+    $existing->attendance_code=$this->ensureAttendanceCode($existing);
+    return response()->json(['message'=>'You already RSVP’d for this event.','rsvp'=>$existing],422);
+   }
    $taken=Rsvp::where('event_id',$event->id)->where('status','active')->pluck('seat_no')->all();
    if(count($taken)>=$event->seat_limit)return response()->json(['message'=>'This event is full.'],422);
    $set=array_fill_keys($taken,true);$seat=1;
    while(isset($set[$seat]) && $seat<=$event->seat_limit)$seat++;
    $rsvp=Rsvp::updateOrCreate(['event_id'=>$event->id,'user_id'=>$r->user()->id],['status'=>'active','seat_no'=>$seat,'reminder_sent_at'=>null]);
+   $rsvp->attendance_code=$this->ensureAttendanceCode($rsvp);
    $key='rsvp:'.$rsvp->id.':confirmed:'.Str::uuid();
    Hub::notify($r->user(),'rsvp','RSVP confirmed','Your seat #'.$seat.' is reserved for '.$event->title.'.','/events/'.$event->id,$key.':student');
    if($event->department_id){
@@ -45,7 +74,7 @@ class StudentController extends Controller {
    $row=Rsvp::where('event_id',$event->id)->where('user_id',$r->user()->id)->where('status','active')->lockForUpdate()->firstOrFail();
    abort_if(EventCheckIn::where('rsvp_id',$row->id)->exists(),422,'You cannot cancel after checking in.');
    abort_if($event->starts_at->isPast(),422,'This event already started.');
-   $row->update(['status'=>'cancelled','seat_no'=>null,'reminder_sent_at'=>null]);
+   $row->update(['status'=>'cancelled','seat_no'=>null,'reminder_sent_at'=>null,'attendance_token'=>null,'attendance_code_hash'=>null]);
    $key='rsvp:'.$row->id.':cancelled:'.Str::uuid();
    Hub::notify($r->user(),'rsvp_cancelled','RSVP cancelled','Your reservation for '.$event->title.' was cancelled.','/events/'.$event->id,$key.':student');
    if($event->department_id){
@@ -68,55 +97,6 @@ class StudentController extends Controller {
   if($exists)DB::table($table)->where($key)->delete();
   else DB::table($table)->insert($key+['created_at'=>now(),'updated_at'=>now()]);
   return ['saved'=>!$exists,'message'=>$exists?'Removed.':'Saved.'];
- }
- public function checkin(Request $r,Event $event){
-  abort_unless(in_array($r->user()->role,['student','faculty'],true),403,'Only students and Faculty can check in.');
-  $data=$r->validate(['code'=>'required|string|max:12']);
-  return DB::transaction(function()use($r,$event,$data){
-   $event=Event::whereKey($event->id)->lockForUpdate()->firstOrFail();
-   abort_unless($event->status==='published',404);
-   abort_unless(now()->between($event->starts_at->copy()->subHours(2),$event->ends_at),422,'Check-in is not open for this event.');
-   abort_unless($event->check_in_code && hash_equals(strtoupper($event->check_in_code),strtoupper(trim($data['code']))),422,'Invalid check-in code.');
-   $rsvp=Rsvp::where('event_id',$event->id)->where('user_id',$r->user()->id)->where('status','active')->lockForUpdate()->firstOrFail();
-   abort_if(EventCheckIn::where('rsvp_id',$rsvp->id)->lockForUpdate()->exists(),422,'Already checked in.');
-   $checkin=EventCheckIn::create([
-    'rsvp_id'=>$rsvp->id,
-    'verification_status'=>'pending',
-    'checked_at'=>now(),
-   ]);
-   $key='event-checkin:'.$checkin->id;
-   Hub::notify($r->user(),'checkin','Check-in submitted',
-    'Your check-in for '.$event->title.' is pending organizer verification.',
-    '/events/'.$event->id,$key.':student');
-   if($event->department_id){
-    Hub::notifyDepartmentManagers($event->department_id,'events','checkin','Check-in awaiting verification',
-     $r->user()->name.' submitted a check-in for '.$event->title.'.',
-     '/organizer?tab=attendees&department_id='.$event->department_id,$key.':managers',$r->user()->id);
-   }elseif($event->created_by!==$r->user()->id){
-    Hub::notify(User::find($event->created_by),'checkin','Check-in awaiting verification',
-     $r->user()->name.' submitted a check-in for '.$event->title.'.','/organizer?tab=attendees',$key.':organizer');
-   }
-   return ['message'=>'Check-in submitted successfully. Pending verification.','attendance_status'=>'Pending Verification'];
-  });
- }
- public function checkout(Request $r,Event $event){
-  abort_unless(in_array($r->user()->role,['student','faculty'],true),403,'Only students and Faculty can check out.');
-  $data=$r->validate(['code'=>'required|string|max:12']);
-  return DB::transaction(function()use($r,$event,$data){
-   $event=Event::whereKey($event->id)->lockForUpdate()->firstOrFail();
-   abort_unless($event->status==='published'&&$event->requires_check_out,422,'Check-out is not required for this event.');
-   abort_unless($event->check_out_opens_at&&$event->check_out_closes_at&&now()->between($event->check_out_opens_at,$event->check_out_closes_at),422,'Check-out is not open for this event.');
-   abort_unless($event->check_out_code&&hash_equals(strtoupper($event->check_out_code),strtoupper(trim($data['code']))),422,'Invalid check-out code.');
-   $rsvp=Rsvp::where('event_id',$event->id)->where('user_id',$r->user()->id)->where('status','active')->lockForUpdate()->firstOrFail();
-   $checkin=EventCheckIn::where('rsvp_id',$rsvp->id)->lockForUpdate()->firstOrFail();
-   abort_unless($checkin->verification_status==='verified',422,'Check-in must be verified before check-out.');
-   abort_if($checkin->checked_out_at,422,'Check-out was already recorded.');
-   $checkin->update(['checked_out_at'=>now()]);
-   $key='event-checkout:'.$checkin->id;
-   Hub::notify($r->user(),'checkin','Attendance completed',
-    'Your attendance for '.$event->title.' is complete.','/events/'.$event->id,$key.':student');
-   return ['message'=>'Check-out recorded. Your attendance is complete.','attendance_status'=>'Completed'];
-  });
  }
  public function report(Request $r,Event $event){
   abort_unless($event->status==='published',404);
@@ -151,5 +131,16 @@ class StudentController extends Controller {
 
    return response()->json(['message'=>'Report submitted for admin review.','report_id'=>$reportId],201);
   });
+ }
+ public function myReports(Request $r){
+  return DB::table('event_reports as reports')
+   ->leftJoin('events','events.id','=','reports.event_id')
+   ->where('reports.user_id',$r->user()->id)
+   ->select(
+    'reports.id','reports.event_id','reports.category','reports.reason','reports.status','reports.created_at',
+    'events.title as event_title','events.starts_at as event_starts_at','events.venue as event_venue'
+   )
+   ->orderByDesc('reports.created_at')
+   ->paginate(20);
  }
 }

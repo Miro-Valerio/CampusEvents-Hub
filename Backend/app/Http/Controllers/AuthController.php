@@ -14,6 +14,7 @@ class AuthController extends Controller {
   $data=$r->validate([
    'name'=>'required|string|max:120','email'=>'required|email|max:255|unique:users,email',
    'course'=>'nullable|string|max:140',
+   'year_level'=>['required',Rule::in(['1st Year','2nd Year','3rd Year','4th Year'])],
    'department_id'=>'required|exists:departments,id',
    'password'=>['required','confirmed',PasswordRule::min(8)],
   ]);
@@ -32,7 +33,14 @@ class AuthController extends Controller {
   abort_unless($user->is_active,403,'This account is deactivated. Contact an administrator.');
   return ['user'=>$user->load(['department']),'token'=>$user->createToken('campus-events')->plainTextToken];
  }
- public function logout(Request $r){$r->user()->currentAccessToken()?->delete();return ['message'=>'Logged out.'];}
+ public function logout(Request $r){
+  $user=$r->user();
+  $user->currentAccessToken()?->delete();
+  if($user->role==='admin'&&!$user->tokens()->exists()){
+   $user->forceFill(['last_active_at'=>null])->save();
+  }
+  return ['message'=>'Logged out.'];
+ }
  public function me(Request $r){return $r->user()->load(['department']);}
  public function forgot(Request $r){
   $r->validate(['email'=>'required|email']);
@@ -42,11 +50,17 @@ class AuthController extends Controller {
  public function reset(Request $r){
   $data=$r->validate(['token'=>'required|string','email'=>'required|email','password'=>['required','confirmed',PasswordRule::min(8)]]);
   $status=Password::reset($data,function(User $user,string $password){
-   $user->forceFill([
+   $updates=[
     'password'=>Hash::make($password),
     'remember_token'=>Str::random(60),
     'email_verified_at'=>$user->email_verified_at??now(),
-   ])->save();
+    'must_change_password'=>false,
+   ];
+   if($user->activation_pending){
+    $updates['is_active']=true;
+    $updates['activation_pending']=false;
+   }
+   $user->forceFill($updates)->save();
    $user->tokens()->delete(); event(new PasswordReset($user));
   });
   return $status===Password::PASSWORD_RESET ? ['message'=>'Password updated. Log in with your new password.'] : response()->json(['message'=>__($status)],422);
@@ -95,10 +109,14 @@ class AuthController extends Controller {
   return redirect(rtrim(config('app.frontend_url'),'/').'/profile?email=verified');
  }
  public function changePassword(Request $r){
-  $data=$r->validate(['current_password'=>'required|string','password'=>['required','confirmed',PasswordRule::min(8)]]);
-  abort_unless(Hash::check($data['current_password'],$r->user()->password),422,'Current password is incorrect.');
-  $r->user()->update(['password'=>$data['password']]);
-  $r->user()->tokens()->where('id','!=',$r->user()->currentAccessToken()?->id)->delete();
+  $user=$r->user();
+  $passwordRule=$user->must_change_password
+   ?PasswordRule::min(8)->mixedCase()->numbers()->symbols()
+   :PasswordRule::min(8);
+  $data=$r->validate(['current_password'=>'required|string','password'=>['required','confirmed',$passwordRule]]);
+  abort_unless(Hash::check($data['current_password'],$user->password),422,'Current password is incorrect.');
+  $user->update(['password'=>$data['password'],'must_change_password'=>false]);
+  $user->tokens()->where('id','!=',$user->currentAccessToken()?->id)->delete();
   return ['message'=>'Password updated.'];
  }
  public function preferences(Request $r){

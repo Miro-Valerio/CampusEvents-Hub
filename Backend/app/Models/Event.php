@@ -1,7 +1,9 @@
 <?php
 namespace App\Models;
+use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Database\Eloquent\Model;
 class Event extends Model {
+ use SoftDeletes;
  protected $fillable=['department_id','created_by','title','description','venue','starts_at','ends_at','category','seat_limit','poster_path','rules','status','check_in_code','requires_check_out','check_out_opens_at','check_out_closes_at','check_out_code'];
  protected $appends=['poster_url','schedule_status'];
  protected $hidden=['check_in_code','check_out_code'];

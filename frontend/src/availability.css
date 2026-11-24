@@ -1,0 +1,14 @@
+.availability-menu{padding:10px 11px 12px;border-bottom:1px solid var(--border);margin-bottom:5px}
+.availability-menu>strong,.availability-menu>small{display:block}
+.availability-menu>strong{font-size:12px}
+.availability-menu>small{margin-top:5px;color:var(--muted);font-size:10px}
+.availability-options{display:flex;gap:8px;margin-top:9px}
+.availability-options button{display:inline-flex;align-items:center;justify-content:center;gap:7px;flex:1;padding:8px;border:1px solid var(--border);border-radius:8px;background:#fff;color:#4e4444;font-size:11px;font-weight:700}
+.availability-options button:hover:not(:disabled){background:var(--rose);border-color:#e4c8bd}
+.presence-dot{display:inline-block;width:9px;height:9px;flex:0 0 9px;border-radius:50%;background:#929292}
+.presence-dot.online{background:#2f9b57}
+.presence-dot.busy{background:#e58b24}
+.presence-dot.offline,.presence-dot.unavailable{background:#929292}
+.admin-availability-indicator{display:flex;align-items:center;gap:8px;width:max-content;max-width:100%;margin:0 0 15px;color:#62575a;font-size:12px;font-weight:700}
+.admin-availability-indicator .presence-dot{width:10px;height:10px;flex-basis:10px}
+@media(max-width:590px){.admin-availability-indicator{margin-bottom:12px;font-size:11px}}

@@ -1,0 +1,17 @@
+.student-attendance-code{margin-top:16px;flex-wrap:wrap;align-items:center;width:100%}
+.student-attendance-code strong{overflow-wrap:anywhere;letter-spacing:.08em}
+.attendance-code-entry{display:flex;align-items:flex-end;gap:12px;flex-wrap:wrap;width:100%;margin-top:14px}
+.attendance-code-entry .field{flex:1 1 260px}
+.attendance-candidate{display:flex;flex-direction:column;gap:8px;width:100%;margin-top:14px;padding:18px;border:1px solid #e8d9d3;border-radius:12px;background:#fffaf7}
+.attendance-candidate h3,.attendance-candidate p{margin:0}
+.attendance-candidate h3{color:#5d1018}
+.attendance-candidate .btn{align-self:flex-start;margin-top:8px}
+.camera-scan{flex-basis:100%;width:100%}
+.attendance-controls{align-items:flex-end;gap:14px}
+.attendance-controls>.attendance-event-select{flex:1 1 320px;max-width:500px;min-height:46px}
+.attendance-controls>.field{flex:0 1 230px;min-width:190px}
+.attendance-controls .attendance-action-select{appearance:none;-webkit-appearance:none;min-height:46px;padding:12px 42px 12px 14px;border:1px solid #e6d5ce;border-radius:10px;background-color:#fffaf7;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%235d1018' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:right 14px center;background-size:16px;color:#5d1018;font-size:13px;font-weight:700;cursor:pointer;transition:border-color .2s,box-shadow .2s,background-color .2s}
+.attendance-controls .attendance-action-select:hover{border-color:#c99c8f;background-color:#fff7f2}
+.attendance-controls .attendance-action-select:focus-visible{outline:0;border-color:#9c4c48;box-shadow:0 0 0 3px #f4ded7}
+.attendance-controls .attendance-action-select option{background:#fff;color:#302b2e;font-weight:500}
+@media(max-width:590px){.attendance-controls{align-items:stretch;gap:12px}.attendance-controls>.attendance-event-select,.attendance-controls>.field{flex:1 1 100%;max-width:none;min-width:0}.attendance-controls .attendance-action-select{width:100%}}

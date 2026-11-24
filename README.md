@@ -168,6 +168,20 @@ php artisan migrate --path=database/migrations/2026_11_22_234500_add_verified_at
 
 QR camera scanning requires camera permission and a secure context (HTTPS or localhost). Manual code entry remains available as a fallback.
 
+Admins can set Online or Busy from the account dropdown. Presence is refreshed after Admin interaction and expires after two minutes without activity; department Presidents and Officers see the aggregate Admin status above the Department Workspace heading, refreshed every 15 seconds. Before enabling this feature on another database, back it up and apply the additive migration from `Backend`:
+
+```powershell
+php artisan migrate --path=database/migrations/2026_11_24_000001_add_admin_availability_and_presence_to_users.php
+```
+
+Deleting an event from Organizer or Admin removes it from normal event listings using Laravel soft deletes. Existing RSVP, check-in, and attendance rows and poster files are retained. Back up the database, then apply `2026_11_24_000002_add_soft_deletes_to_events.php` from `Backend`.
+
+Student registration requires a Year Level. Existing user rows remain unchanged with `year_level` set to null until updated by an Admin. Year Level is included in authorized event attendee data and RSVP exports. Back up the database, then apply the additive migration from `Backend`:
+
+```powershell
+php artisan migrate --path=database/migrations/2026_11_24_000003_add_year_level_to_users_table.php
+```
+
 ## 8. Use your own authorized SPC photos
 
 The generated landing page includes a **local campus-style illustration**, **not a claim to depict the actual SPC campus**. For an accurate campus photo, add your authorized photo at `frontend/public/campus-hero.jpg`. In `frontend/src/styles.css`, replace both occurrences of:
