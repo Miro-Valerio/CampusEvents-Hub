@@ -1,21 +1,34 @@
-import React,{useEffect,useState} from 'react';
+import React,{useCallback,useEffect,useState} from 'react';
 import {Link,useSearchParams} from 'react-router-dom';
-import {CalendarDays,Users,TicketCheck,Newspaper,Plus,Download,PenSquare,XCircle,BarChart3,ClipboardList,Bell,ArrowRight,Eye,ShieldCheck} from 'lucide-react';
-import {QRCodeSVG} from 'qrcode.react';
+import {CalendarDays,Users,TicketCheck,Newspaper,Plus,Download,PenSquare,XCircle,BarChart3,ClipboardList,Bell,ArrowRight,Eye,ShieldCheck,ScanLine} from 'lucide-react';
+import {QRScanner} from './Events';
+import '../attendance.css';
 import {useAuth} from '../context/AuthContext';
 import {useToast} from '../context/ToastContext';
 import {api,downloadCsv,localDateTime,toInputDate} from '../lib/api';
 import {useLoad,PageTitle,Loading,ErrorState,EmptyState,Stat,StatusBadge,Field,FormNotice} from '../components/Widgets';
 const tabs=[['overview','Overview'],['events','Manage events'],['attendees','Attendees'],['announcements','Announcements'],['members','Memberships'],['officers','Officer access'],['analytics','Analytics']];
-export default function Organizer(){const {user}=useAuth(),{data:departments}=useLoad('/departments');const [params,setParams]=useSearchParams();const visibleTabs=tabs;const tab=visibleTabs.some(([id])=>id===params.get('tab'))?params.get('tab'):'overview';const dept=user?.role==='admin'?Number(params.get('department_id')||departments?.[0]?.id||0):user?.department_id;
+const yearLevels=['1st Year','2nd Year','3rd Year','4th Year'];
+export default function Organizer(){const {user}=useAuth(),{data:departments}=useLoad('/departments');const [params,setParams]=useSearchParams(),[adminAvailability,setAdminAvailability]=useState(null);const facultyCanManageEvents=user?.role==='faculty'&&user.officer_permissions?.includes('events'),facultyCanManageAnnouncements=user?.role==='faculty'&&user.officer_permissions?.includes('announcements'),facultyCanManageAttendance=user?.role==='faculty'&&user.officer_permissions?.includes('attendance');const visibleTabs=user?.role==='faculty'?tabs.filter(([id])=>id==='overview'||(['events','analytics'].includes(id)&&facultyCanManageEvents)||(id==='attendees'&&facultyCanManageAttendance)||(id==='announcements'&&facultyCanManageAnnouncements)):user?.role==='officer'?tabs.filter(([id])=>id!=='attendees'||user.officer_permissions?.includes('attendance')):tabs;const tab=visibleTabs.some(([id])=>id===params.get('tab'))?params.get('tab'):visibleTabs[0]?.[0]||'overview';const dept=user?.role==='admin'?Number(params.get('department_id')||departments?.[0]?.id||0):user?.department_id;
+ useEffect(()=>{
+  if(!['president','officer'].includes(user?.role)){setAdminAvailability(null);return;}
+  let active=true;
+  const refreshAvailability=async()=>{
+   try{const result=await api('/department/admin-availability');if(active)setAdminAvailability(result.status);}
+   catch{if(active)setAdminAvailability('Unavailable');}
+  };
+  refreshAvailability();
+  const timer=setInterval(refreshAvailability,15000);
+  return()=>{active=false;clearInterval(timer);};
+ },[user?.role]);
  const allowed=a=>user?.role==='admin'||user?.role==='president'||(['officer','faculty'].includes(user?.role)&&user?.officer_permissions?.includes(a));
  const changeTab=t=>setParams(p=>{p.set('tab',t);return p;});
- return <div className="container page-section"><PageTitle eyebrow="DEPARTMENT WORKSPACE" title="Organizer dashboard." description="Manage campus events, announcements, members, and attendance." action={user?.role==='admin'?<select aria-label="Manage department" value={dept||''} onChange={e=>setParams(p=>{p.set('department_id',e.target.value);return p;})}>{departments?.map(d=><option key={d.id} value={d.id}>{d.name}</option>)}</select>:<span className="role-label">{user?.department?.name||'My department'}</span>}/><div className="tab-nav">{visibleTabs.map(([id,label])=><button key={id} onClick={()=>changeTab(id)} className={tab===id?'active':''}>{label}</button>)}</div>
- {!dept?<EmptyState title="Select a department" description="Choose a department to access organizer tools."/>:tab==='overview'?<OrgOverview dept={dept}/>:tab==='events'?allowed('events')?<ManageEvents dept={dept}/>:<AccessDenied/>:tab==='attendees'?allowed('events')?<Attendees dept={dept}/>:<AccessDenied/>:tab==='announcements'?allowed('announcements')?<ManageAnnouncements dept={dept}/>:<AccessDenied/>:tab==='members'?allowed('members')?<ManageMembers dept={dept}/>:<AccessDenied/>:tab==='officers'?(user?.role==='admin'||user?.role==='president')?<ManageOfficers dept={dept}/>:<AccessDenied/>:<OrgAnalytics dept={dept}/>}</div>;
+ return <div className="container page-section">{['president','officer'].includes(user?.role)&&<div className="admin-availability-indicator" role="status" aria-live="polite"><span className={`presence-dot ${adminAvailability?.toLowerCase()||'offline'}`}/><span>{adminAvailability==='Unavailable'?'Admin availability unavailable':adminAvailability?`Admin is ${adminAvailability}`:'Loading Admin availability...'}</span></div>}<PageTitle eyebrow="DEPARTMENT WORKSPACE" title="Organizer dashboard." description="Manage campus events, announcements, members, and attendance." action={user?.role==='admin'?<select aria-label="Manage department" value={dept||''} onChange={e=>setParams(p=>{p.set('department_id',e.target.value);return p;})}>{departments?.map(d=><option key={d.id} value={d.id}>{d.name}</option>)}</select>:<span className="role-label">{user?.department?.name||'My department'}</span>}/><div className="tab-nav">{visibleTabs.map(([id,label])=><button key={id} onClick={()=>changeTab(id)} className={tab===id?'active':''}>{label}</button>)}</div>
+ {!dept?<EmptyState title="Select a department" description="Choose a department to access organizer tools."/>:tab==='overview'?<OrgOverview dept={dept} showEvents={user?.role!=='faculty'||allowed('events')}/>:tab==='events'?allowed('events')?<ManageEvents dept={dept}/>:<AccessDenied/>:tab==='attendees'?allowed('attendance')?<Attendees dept={dept} showStudentEmail={user?.role!=='faculty'}/>:<AccessDenied/>:tab==='announcements'?allowed('announcements')?<ManageAnnouncements dept={dept}/>:<AccessDenied/>:tab==='members'?allowed('members')?<ManageMembers dept={dept}/>:<AccessDenied/>:tab==='officers'?(user?.role==='admin'||user?.role==='president')?<ManageOfficers dept={dept}/>:<AccessDenied/>:<OrgAnalytics dept={dept}/>}</div>;
 }
 function AccessDenied(){return <div className="state-card"><ShieldCheck size={30}/><h3>Permission required</h3><p>Your department president or administrator must grant permission to manage this section.</p></div>}
-function OrgOverview({dept}){const {data:events}=useLoad(`/organizer/events?department_id=${dept}`,dept),{data:stats,loading,error,reload}=useLoad(`/organizer/overview?department_id=${dept}`,dept);
- return <>{loading?<Loading/>:error?<ErrorState message={error} retry={reload}/>:<div className="dashboard-stats"><Stat icon={CalendarDays} label="Department events" value={stats?.events}/><Stat icon={TicketCheck} label="Active RSVPs" value={stats?.rsvps}/><Stat icon={Users} label="Approved members" value={stats?.members}/><Stat icon={ClipboardList} label="Pending requests" value={stats?.pending}/></div>}<div className="panel spaced-panel"><div className="panel-head"><h2>Recent department events</h2></div>{!events?.length?<EmptyState title="No events yet" description="Create your first department activity in Manage events."/>:<div className="table-scroll"><table className="data-table"><thead><tr><th>Event</th><th>Start</th><th>Seats</th><th>Status</th></tr></thead><tbody>{events?.slice(0,6).map(e=><tr key={e.id}><td><Link to={`/events/${e.id}`}>{e.title}</Link></td><td>{localDateTime(e.starts_at)}</td><td>{e.attendee_count}/{e.seat_limit}</td><td><StatusBadge value={e.schedule_status||e.status}/></td></tr>)}</tbody></table></div>}</div></>;
+function OrgOverview({dept,showEvents=true}){const {data:events}=useLoad(showEvents?`/organizer/events?department_id=${dept}`:null,dept),{data:stats,loading,error,reload}=useLoad(`/organizer/overview?department_id=${dept}`,dept);
+ return <>{loading?<Loading/>:error?<ErrorState message={error} retry={reload}/>:<div className="dashboard-stats"><Stat icon={CalendarDays} label="Department events" value={stats?.events}/><Stat icon={TicketCheck} label="Active RSVPs" value={stats?.rsvps}/><Stat icon={Users} label="Approved members" value={stats?.members}/><Stat icon={ClipboardList} label="Pending requests" value={stats?.pending}/></div>}{showEvents&&<div className="panel spaced-panel"><div className="panel-head"><h2>Recent department events</h2></div>{!events?.length?<EmptyState title="No events yet" description="Create your first department activity in Manage events."/>:<div className="table-scroll"><table className="data-table"><thead><tr><th>Event</th><th>Start</th><th>Seats</th><th>Status</th></tr></thead><tbody>{events?.slice(0,6).map(e=><tr key={e.id}><td><Link to={`/events/${e.id}`}>{e.title}</Link></td><td>{localDateTime(e.starts_at)}</td><td>{e.attendee_count}/{e.seat_limit}</td><td><StatusBadge value={e.schedule_status||e.status}/></td></tr>)}</tbody></table></div>}</div>}</>;
 }
 const emptyEvent={title:'',description:'',venue:'',category:'Campus',starts_at:'',ends_at:'',seat_limit:50,rules:'',requires_check_out:false,check_out_opens_at:'',check_out_closes_at:''};
 function offsetDateTime(value,minutes){
@@ -85,6 +98,12 @@ function ManageEvents({dept}){
   try{const result=await api(`/organizer/events/${event.id}/cancel`,{method:'POST'});flash(result.message);reload();}
   catch(e){flash(e.message,'error');}finally{setBusy(0);}
  }
+ async function remove(event){
+  if(!confirm(`Delete "${event.title}" from listings? This is separate from cancelling. RSVP and attendance history will be preserved.`))return;
+  setBusy(event.id);
+  try{const result=await api(`/organizer/events/${event.id}`,{method:'DELETE'});flash(result.message);reload();}
+  catch(e){flash(e.message,'error');}finally{setBusy(0);}
+ }
  return <div className="panel">
   <div className="panel-head"><h2>Department events</h2><button className="btn btn-primary" onClick={()=>setEdit({})}><Plus size={16}/> Create event</button></div>
   {edit!==undefined&&<div className="inline-editor"><EventForm key={edit.id||'create'} dept={dept} existing={edit.id?edit:null} onCancel={()=>setEdit(undefined)} onSaved={()=>{setEdit(undefined);reload();}}/></div>}
@@ -93,17 +112,46 @@ function ManageEvents({dept}){
     <td><strong>{e.title}</strong><small>{e.venue}</small></td><td>{localDateTime(e.starts_at)}</td><td>{e.attendee_count}/{e.seat_limit}</td>
     <td>{e.pending_checkin_count||0}</td><td>{e.verified_checkin_count||0}</td><td>{e.attended_count||0}</td>
     <td>{e.attendance_window_closed?e.absent_count||0:'—'}</td><td><StatusBadge value={e.schedule_status||e.status}/></td>
-    <td><div className="row-actions"><Link className="btn btn-secondary btn-xs" to={`/events/${e.id}`}>View</Link><button className="btn btn-secondary btn-xs" onClick={()=>{setEdit(e);window.scrollTo({top:230,behavior:'smooth'});}} disabled={e.status==='cancelled'}>Edit</button><button className="btn btn-danger-light btn-xs" disabled={e.status==='cancelled'||busy===e.id} onClick={()=>cancel(e)}>Cancel</button></div></td>
+    <td><div className="row-actions"><Link className="btn btn-secondary btn-xs" to={`/events/${e.id}`}>View</Link><button className="btn btn-secondary btn-xs" onClick={()=>{setEdit(e);window.scrollTo({top:230,behavior:'smooth'});}} disabled={e.status==='cancelled'||busy===e.id}>Edit</button><button className="btn btn-danger-light btn-xs" disabled={e.status==='cancelled'||busy===e.id} onClick={()=>cancel(e)}>Cancel</button><button className="btn btn-danger-light btn-xs" disabled={busy===e.id} onClick={()=>remove(e)}>Delete</button></div></td>
    </tr>)}</tbody></table></div>}
  </div>;
 }
-function Attendees({dept}){
- const {data:events}=useLoad(`/organizer/events?department_id=${dept}`,dept);
- const [eventId,setEventId]=useState(''),[attendanceFilter,setAttendanceFilter]=useState('Pending Verification'),[busy,setBusy]=useState('');
+function Attendees({dept,showStudentEmail}){
+ const {data:events}=useLoad(`/organizer/attendance/events?department_id=${dept}`,dept);
+ const [eventId,setEventId]=useState(''),[attendanceFilter,setAttendanceFilter]=useState('All');
+ const [yearLevelFilter,setYearLevelFilter]=useState(''),[courseFilter,setCourseFilter]=useState('');
+ const [search,setSearch]=useState(''),[sortBy,setSortBy]=useState('seat'),[busy,setBusy]=useState('');
+ const [attendanceMode,setAttendanceMode]=useState('check_in'),[code,setCode]=useState('');
+ const [scannerOpen,setScannerOpen]=useState(false),[candidate,setCandidate]=useState(null),[lookupError,setLookupError]=useState('');
  const id=eventId||events?.[0]?.id;
- const {data,loading,error,reload}=useLoad(id?`/organizer/events/${id}/attendees`:null,id);
+ const filterParams=new URLSearchParams();
+ if(courseFilter)filterParams.set('course',courseFilter);
+ if(yearLevelFilter)filterParams.set('year_level',yearLevelFilter);
+ const filterQuery=filterParams.toString();
+ const attendeesUrl=id?`/organizer/events/${id}/attendees${filterQuery?`?${filterQuery}`:''}`:null;
+ const {data,loading,error,reload}=useLoad(attendeesUrl,`${id||''}:${filterQuery}`);
  const {flash}=useToast();
  useEffect(()=>{if(!id)return;const timer=setInterval(reload,30000);return()=>clearInterval(timer);},[id,reload]);
+ async function lookup(rawCode=code){
+  if(!id||!rawCode.trim())return;
+  setCode(rawCode.trim().toUpperCase());setCandidate(null);setLookupError('');setBusy('lookup');
+  try{
+   const result=await api(`/organizer/events/${id}/attendance/lookup`,{method:'POST',body:{code:rawCode.trim(),mode:attendanceMode}});
+   setCandidate(result);
+  }catch(e){setLookupError(e.message);}
+  finally{setBusy('');}
+ }
+ const detected=useCallback(value=>{setScannerOpen(false);lookup(value);},[id,attendanceMode]);
+ async function confirmAttendance(){
+  if(!candidate||!id)return;
+  setBusy('confirm');setLookupError('');
+  try{
+   const route=attendanceMode==='check_in'?'check-in':'check-out';
+   const result=await api(`/organizer/events/${id}/attendance/${route}`,{method:'POST',body:{code}});
+   flash(result.message);setCandidate(null);setCode('');reload();
+  }catch(e){setLookupError(e.message);}
+  finally{setBusy('');}
+ }
  async function decide(rsvpId,decision){
   setBusy(`${rsvpId}:${decision}`);
   try{
@@ -112,21 +160,53 @@ function Attendees({dept}){
    flash(result.message);reload();
   }catch(e){flash(e.message,'error');}finally{setBusy('');}
  }
- async function exportRows(){try{await downloadCsv(`/organizer/events/${id}/export`,`spc-event-${id}-rsvps.csv`);}catch(e){flash(e.message,'error');}}
- const visibleAttendees=data?.attendees?.filter(attendee=>attendanceFilter==='All'||attendee.attendance_status===attendanceFilter)||[];
- const filters=['Pending Verification','Verified','Completed','Rejected','Absent','Not Checked In','All'];
+ async function exportRows(){
+  const params=new URLSearchParams();
+  if(courseFilter)params.set('course',courseFilter);
+  if(yearLevelFilter)params.set('year_level',yearLevelFilter);
+  const query=params.toString();
+  try{await downloadCsv(`/organizer/events/${id}/export${query?`?${query}`:''}`,`spc-event-${id}-rsvps.csv`);}
+  catch(e){flash(e.message,'error');}
+ }
+ const searchText=search.trim().toLocaleLowerCase();
+ const visibleAttendees=data?.attendees?.filter(attendee=>(attendanceFilter==='All'||attendee.attendance_status===attendanceFilter)
+  &&(!searchText||attendee.user?.name?.toLocaleLowerCase().includes(searchText)))||[];
+ const sortedAttendees=[...visibleAttendees].sort((a,b)=>{
+  if(sortBy==='name')return (a.user?.name||'').localeCompare(b.user?.name||'');
+  if(sortBy==='course')return (a.user?.course||'').localeCompare(b.user?.course||'');
+  if(sortBy==='year')return (a.user?.year_level||'Not Set').localeCompare(b.user?.year_level||'Not Set');
+  return (a.seat_no||0)-(b.seat_no||0);
+ });
+ const attendanceFilters=['Not Checked In','Verified','Completed','Absent','Pending Verification','Rejected','All'];
  return <div className="panel">
-  <div className="panel-head"><h2>Event attendees and attendance verification</h2><button className="btn btn-secondary" onClick={exportRows} disabled={!id}><Download size={16}/> Export CSV</button></div>
-  <div className="organizer-controls"><select value={id||''} onChange={e=>setEventId(e.target.value)}><option value="" disabled>Choose an event</option>{events?.map(e=><option key={e.id} value={e.id}>{e.title}</option>)}</select>
-   {data?.check_in_code&&<div className="checkin-display"><QRCodeSVG value={data.check_in_code} size={118} level="M" includeMargin/><div><span>STUDENT CHECK-IN QR</span><strong>{data.check_in_code}</strong><small>Available during the check-in window</small></div></div>}
-   {data?.check_out_code&&<div className="checkin-display"><QRCodeSVG value={data.check_out_code} size={118} level="M" includeMargin/><div><span>STUDENT CHECK-OUT QR</span><strong>{data.check_out_code}</strong><small>Available during the configured check-out window</small></div></div>}
+  <div className="panel-head"><h2>Attendance management</h2><button className="btn btn-secondary" onClick={exportRows} disabled={!id}><Download size={16}/> Export CSV</button></div>
+  <div className="organizer-controls attendance-controls"><select className="attendance-event-select" aria-label="Filter by event" value={id||''} onChange={e=>{setEventId(e.target.value);setCourseFilter('');setYearLevelFilter('');setSearch('');setAttendanceMode('check_in');setCandidate(null);setCode('');setLookupError('');}}><option value="" disabled>Choose an event</option>{events?.map(e=><option key={e.id} value={e.id}>{e.title}</option>)}</select>
+   <Field label="Attendance action"><select className="attendance-action-select" aria-label="Attendance action" value={attendanceMode} onChange={e=>{setAttendanceMode(e.target.value);setCandidate(null);setLookupError('');}}><option value="check_in">Check-in</option><option value="check_out" disabled={!events?.find(event=>Number(event.id)===Number(id))?.requires_check_out}>Check-out</option></select></Field>
+   <div className="attendance-code-entry"><Field label="Student Attendance Code"><input value={code} onChange={e=>{setCode(e.target.value.toUpperCase());setCandidate(null);setLookupError('');}} maxLength={32} placeholder="Enter the 32-character code"/></Field><button type="button" className="btn btn-secondary" onClick={()=>setScannerOpen(true)} disabled={!id}><ScanLine size={16}/> Scan student QR</button><button type="button" className="btn btn-primary" onClick={()=>lookup()} disabled={!id||!code.trim()||Boolean(busy)}>{busy==='lookup'?'Checking...':'Look up code'}</button></div>
+   {scannerOpen&&<QRScanner onDetected={detected} onClose={()=>setScannerOpen(false)}/>}
+   {lookupError&&<FormNotice error={lookupError}/>}
+   {candidate&&<div className="attendance-candidate"><h3>Confirm {candidate.mode==='check_in'?'check-in':'check-out'}</h3><p><strong>Event:</strong> {candidate.event.title}</p><p><strong>Student:</strong> {candidate.student.name}</p><p><strong>Course / Program:</strong> {candidate.student.course||'—'}</p><p><strong>Year Level:</strong> {candidate.student.year_level||'Not Set'}</p><p><strong>Current attendance:</strong> {candidate.attendance_status}</p><button type="button" className="btn btn-primary" onClick={confirmAttendance} disabled={Boolean(busy)}>{busy==='confirm'?'Saving...':attendanceMode==='check_in'?'Confirm Attendance':'Confirm Check-Out'}</button></div>}
   </div>
-  {!id?<EmptyState title="No events yet"/>:loading?<Loading/>:error?<ErrorState message={error} retry={reload}/>:!data?.attendees?.length?<EmptyState title="No RSVPs for this event"/>:<>
-   <div className="tab-nav attendance-filters">{filters.map(filter=><button type="button" key={filter} onClick={()=>setAttendanceFilter(filter)} className={attendanceFilter===filter?'active':''}>{filter}</button>)}</div>
-   {!visibleAttendees.length?<EmptyState title={`No ${attendanceFilter==='All'?'attendance':attendanceFilter.toLowerCase()} records`}/>:<div className="table-scroll"><table className="data-table"><thead><tr><th>Seat</th><th>Participant</th><th>Course</th><th>Check-in time</th><th>Reviewed at</th><th>Check-out time</th><th>Attendance</th><th>Action</th></tr></thead><tbody>{visibleAttendees.map(a=><tr key={a.id}>
-    <td>#{a.seat_no}</td><td><strong>{a.user?.name}</strong><small>{a.user?.email}</small></td><td>{a.user?.course||'—'}</td>
+  {!id?<EmptyState title="No events yet"/>:loading?<Loading/>:error?<ErrorState message={error} retry={reload}/>:<>
+   <div className="dashboard-stats attendance-summary">
+    <Stat icon={TicketCheck} label="Total Confirmed RSVPs" value={data?.summary?.confirmed_rsvps??0}/>
+    <Stat icon={Users} label="Total Verified Attendees" value={data?.summary?.verified_attendees??0}/>
+    <Stat icon={ClipboardList} label="Total Pending Verification" value={data?.summary?.pending_verification??0}/>
+    <Stat icon={XCircle} label="Total Absent Students" value={data?.summary?.absent_students??0}/>
+    <Stat icon={BarChart3} label="Attendance Percentage" value={data?.summary?.attendance_percentage===null?'—':`${data?.summary?.attendance_percentage??0}%`}/>
+   </div>
+   <div className="grid-two attendance-report-filters">
+    <Field label="Course / Program"><select value={courseFilter} onChange={e=>setCourseFilter(e.target.value)}><option value="">All Courses / Programs</option>{data?.courses?.map(course=><option key={course} value={course}>{course}</option>)}</select></Field>
+    <Field label="Year Level"><select value={yearLevelFilter} onChange={e=>setYearLevelFilter(e.target.value)}><option value="">All Year Levels</option>{yearLevels.map(level=><option key={level} value={level}>{level}</option>)}</select></Field>
+    <Field label="Search student name"><input value={search} onChange={e=>setSearch(e.target.value)} placeholder="Search students..."/></Field>
+    <Field label="Sort by"><select value={sortBy} onChange={e=>setSortBy(e.target.value)}><option value="seat">Seat number</option><option value="name">Student name</option><option value="course">Course / Program</option><option value="year">Year Level</option></select></Field>
+   </div>
+   {!data?.summary?.attendance_window_closed&&<p className="helper-text">Absent students are counted only after the event's attendance window has closed.</p>}
+   <div className="tab-nav attendance-filters">{attendanceFilters.map(filter=><button type="button" key={filter} onClick={()=>setAttendanceFilter(filter)} className={attendanceFilter===filter?'active':''}>{filter}</button>)}</div>
+   {!sortedAttendees.length?<EmptyState title={!data?.attendees?.length?'No student RSVPs for this event':`No ${attendanceFilter==='All'?'attendance':attendanceFilter.toLowerCase()} records match these filters`}/>:<div className="table-scroll"><table className="data-table"><thead><tr><th>Seat</th><th>Student Name</th><th>Course / Program</th><th>Year Level</th><th>RSVP Status</th><th>Check-In Time</th><th>Reviewed At</th><th>Check-Out Time</th><th>Attendance Status</th><th>Actions</th></tr></thead><tbody>{sortedAttendees.map(a=><tr key={a.id}>
+    <td>#{a.seat_no}</td><td><strong>{a.user?.name}</strong>{showStudentEmail&&<small>{a.user?.email}</small>}</td><td>{a.user?.course||'—'}</td><td>{a.user?.year_level||'Not Set'}</td><td><StatusBadge value={a.status}/></td>
     <td>{a.checkin?.checked_at?localDateTime(a.checkin.checked_at):'—'}</td><td>{a.checkin?.verification_at?localDateTime(a.checkin.verification_at):'—'}</td><td>{a.checkin?.checked_out_at?localDateTime(a.checkin.checked_out_at):'—'}</td>
-    <td><StatusBadge value={a.attendance_status}/></td><td>{a.attendance_status==='Pending Verification'&&<div className="row-actions"><button className="btn btn-primary btn-xs" disabled={Boolean(busy)} onClick={()=>decide(a.id,'approve')}>Approve</button><button className="btn btn-danger-light btn-xs" disabled={Boolean(busy)} onClick={()=>decide(a.id,'reject')}>Reject</button></div>}</td>
+    <td><StatusBadge value={a.attendance_status}/></td><td>{a.attendance_status==='Pending Verification'&&<div className="row-actions"><button className="btn btn-primary btn-xs" disabled={Boolean(busy)} onClick={()=>decide(a.id,'approve')}>Approve legacy check-in</button><button className="btn btn-danger-light btn-xs" disabled={Boolean(busy)} onClick={()=>decide(a.id,'reject')}>Reject legacy check-in</button></div>}</td>
    </tr>)}</tbody></table></div>}
   </>}
  </div>;
@@ -148,5 +228,5 @@ function OrgAnalytics({dept}){const {data,loading,error}=useLoad(`/organizer/eve
 function ManageOfficers({dept}){const {data,loading,error,reload}=useLoad(`/organizer/officers?department_id=${dept}`,dept),{flash}=useToast();const [selection,setSelection]=useState({}),[busy,setBusy]=useState(0);
  async function save(officer){setBusy(officer.id);try{await api(`/organizer/officers/${officer.id}/permissions`,{method:'PUT',body:{officer_permissions:selection[officer.id]??officer.officer_permissions??[]}});flash('Officer permissions saved.');reload();}catch(e){flash(e.message,'error');}finally{setBusy(0);}}
  function toggle(officer,permission,checked){setSelection(p=>{const current=p[officer.id]??officer.officer_permissions??[];return {...p,[officer.id]:checked?[...new Set([...current,permission])]:current.filter(v=>v!==permission)}});}
- return <div className="panel"><h2>Officer access</h2><p className="muted">Administrators assign officer roles under Users & roles. Department presidents can adjust permissions for existing officers in their own department.</p>{loading?<Loading/>:error?<ErrorState message={error} retry={reload}/>:!data?.length?<EmptyState title="No department officers" description="An administrator can appoint officers from the Users & roles page."/>:<div className="officer-list">{data.map(o=><div key={o.id} className="officer-entry"><div><strong>{o.name}</strong><small>{o.email}</small></div><div className="officer-checks">{[['events','Events'],['announcements','Announcements'],['members','Memberships']].map(([id,label])=><label key={id} className="checkbox-label"><input type="checkbox" checked={(selection[o.id]??o.officer_permissions??[]).includes(id)} onChange={e=>toggle(o,id,e.target.checked)}/>{label}</label>)}</div><button disabled={busy===o.id} className="btn btn-primary btn-xs" onClick={()=>save(o)}>Save access</button></div>)}</div>}</div>;
+ return <div className="panel"><h2>Officer access</h2><p className="muted">Administrators assign officer roles under Users & roles. Department presidents can adjust permissions for existing officers in their own department.</p>{loading?<Loading/>:error?<ErrorState message={error} retry={reload}/>:!data?.length?<EmptyState title="No department officers" description="An administrator can appoint officers from the Users & roles page."/>:<div className="officer-list">{data.map(o=><div key={o.id} className="officer-entry"><div><strong>{o.name}</strong><small>{o.email}</small></div><div className="officer-checks">{[['events','Events'],['announcements','Announcements'],['attendance','Attendance'],['members','Memberships']].map(([id,label])=><label key={id} className="checkbox-label"><input type="checkbox" checked={(selection[o.id]??o.officer_permissions??[]).includes(id)} onChange={e=>toggle(o,id,e.target.checked)}/>{label}</label>)}</div><button disabled={busy===o.id} className="btn btn-primary btn-xs" onClick={()=>save(o)}>Save access</button></div>)}</div>}</div>;
 }

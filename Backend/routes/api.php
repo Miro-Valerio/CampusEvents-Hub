@@ -1,6 +1,7 @@
 <?php
 use Illuminate\Support\Facades\Route;
-use App\Http\Controllers\{AuthController,PublicController,StudentController,AnnouncementController,OrganizerController,MembershipController,AdminController};
+use App\Http\Controllers\{AuthController,PublicController,StudentController,AnnouncementController,OrganizerController,MembershipController,AdminController,FacultyController};
+use App\Http\Middleware\RequirePasswordChange;
 
 Route::get('/health',fn()=>['status'=>'ok','app'=>'SPC CampusEvents Hub']);
 Route::get('/departments',[PublicController::class,'departments']);
@@ -17,18 +18,17 @@ Route::post('/forgot-password',[AuthController::class,'forgot'])->middleware('th
 Route::post('/reset-password',[AuthController::class,'reset'])->middleware('throttle:5,1');
 Route::get('/email/change/verify',[AuthController::class,'verifyEmailChange'])->middleware('signed')->name('email.change.verify');
 
-Route::middleware('auth:sanctum')->group(function(){
- Route::get('/me',[AuthController::class,'me']);Route::post('/logout',[AuthController::class,'logout']);
- Route::post('/me/profile',[AuthController::class,'profile']);Route::put('/me/password',[AuthController::class,'changePassword']);
+Route::middleware(['auth:sanctum',RequirePasswordChange::class])->group(function(){
+ Route::get('/me',[AuthController::class,'me'])->name('auth.me');Route::post('/logout',[AuthController::class,'logout'])->name('auth.logout');
+ Route::post('/me/profile',[AuthController::class,'profile']);Route::put('/me/password',[AuthController::class,'changePassword'])->name('auth.password.change');
  Route::post('/me/email-change',[AuthController::class,'requestEmailChange'])->middleware('throttle:5,1');
  Route::put('/me/preferences',[AuthController::class,'preferences']);
  Route::get('/me/activity',[StudentController::class,'activity']);
+ Route::get('/me/reports',[StudentController::class,'myReports'])->middleware('role:student');
  Route::post('/events/{event}/rsvp',[StudentController::class,'rsvp']);
  Route::delete('/events/{event}/rsvp',[StudentController::class,'cancel']);
  Route::post('/events/{event}/bookmark',[StudentController::class,'toggleBookmark']);
  Route::post('/events/{event}/calendar',[StudentController::class,'toggleCalendar']);
- Route::post('/events/{event}/check-in',[StudentController::class,'checkin'])->middleware('throttle:10,1');
- Route::post('/events/{event}/check-out',[StudentController::class,'checkout'])->middleware('throttle:10,1');
  Route::post('/events/{event}/report',[StudentController::class,'report'])->middleware('throttle:5,1');
  Route::get('/announcements',[AnnouncementController::class,'index']);
  Route::post('/announcements/{announcement}/read',[AnnouncementController::class,'read']);
@@ -41,14 +41,24 @@ Route::middleware('auth:sanctum')->group(function(){
  Route::post('/departments/{department}/join',[MembershipController::class,'join']);
  Route::delete('/departments/{department}/join',[MembershipController::class,'cancel']);
 
+ Route::middleware('role:faculty')->prefix('faculty')->group(function(){
+  Route::get('/dashboard',[FacultyController::class,'dashboard']);
+  Route::get('/participation',[FacultyController::class,'participation']);
+ });
+
  Route::middleware('role:admin,president,officer,faculty')->group(function(){
   Route::get('/organizer/officers',[OrganizerController::class,'officers']);
   Route::put('/organizer/officers/{officer}/permissions',[OrganizerController::class,'permissions']);
   Route::get('/organizer/overview',[OrganizerController::class,'overview']);
+  Route::get('/organizer/attendance/events',[OrganizerController::class,'attendanceEvents']);
+  Route::post('/organizer/events/{event}/attendance/lookup',[OrganizerController::class,'attendanceLookup'])->middleware('throttle:30,1');
+  Route::post('/organizer/events/{event}/attendance/check-in',[OrganizerController::class,'checkInAttendance'])->middleware('throttle:30,1');
+  Route::post('/organizer/events/{event}/attendance/check-out',[OrganizerController::class,'checkOutAttendance'])->middleware('throttle:30,1');
   Route::get('/organizer/events',[OrganizerController::class,'index']);
   Route::post('/organizer/events',[OrganizerController::class,'store']);
   Route::post('/organizer/events/{event}',[OrganizerController::class,'update']);
   Route::post('/organizer/events/{event}/cancel',[OrganizerController::class,'cancel']);
+  Route::delete('/organizer/events/{event}',[OrganizerController::class,'destroyEvent']);
   Route::get('/organizer/events/{event}/attendees',[OrganizerController::class,'attendees']);
   Route::post('/organizer/events/{event}/attendees/{rsvp}/verify',[OrganizerController::class,'verify']);
   Route::post('/organizer/events/{event}/attendees/{rsvp}/reject',[OrganizerController::class,'rejectCheckin']);
@@ -61,11 +71,20 @@ Route::middleware('auth:sanctum')->group(function(){
   Route::put('/organizer/announcements/{announcement}',[AnnouncementController::class,'update']);
   Route::delete('/organizer/announcements/{announcement}',[AnnouncementController::class,'destroy']);
  });
+ Route::middleware('role:admin')->group(function(){
+  Route::put('/admin/availability',[AdminController::class,'updateAvailability']);
+  Route::post('/admin/presence/heartbeat',[AdminController::class,'heartbeat'])->middleware('throttle:30,1');
+ });
+ Route::get('/department/admin-availability',[AdminController::class,'adminAvailability'])
+  ->middleware('role:president,officer');
  Route::middleware('role:admin')->prefix('admin')->group(function(){
   Route::get('/stats',[AdminController::class,'stats']);
   Route::get('/events',[AdminController::class,'allEvents']);
+  Route::delete('/events/{event}',[AdminController::class,'destroyEvent']);
   Route::get('/announcements',[AdminController::class,'allAnnouncements']);
+  Route::get('/courses',[AdminController::class,'courses']);
   Route::get('/users',[AdminController::class,'users']);
+  Route::post('/users',[AdminController::class,'storeUser']);
   Route::post('/users/faculty',[AdminController::class,'storeFaculty']);
   Route::put('/users/{user}',[AdminController::class,'updateUser']);
   Route::delete('/users/{user}',[AdminController::class,'destroyUser']);
