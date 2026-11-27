@@ -96,7 +96,7 @@ class AdminController extends Controller {
    'email'=>['required','email','max:255',Rule::unique('users','email'),Rule::unique('users','pending_email')],
    'role'=>'required|in:student,faculty,president,officer',
    'password_setup'=>'required|in:temporary_password,email_invitation',
-   'password'=>['exclude_unless:password_setup,temporary_password','required','confirmed',PasswordRule::min(8)->mixedCase()->numbers()->symbols()],
+   'password'=>['exclude_unless:password_setup,temporary_password','required','confirmed',PasswordRule::min(8)],
    'department_id'=>'required|exists:departments,id',
    'course'=>'nullable|string|max:140|required_if:role,student',
    'year_level'=>['nullable','required_if:role,student',Rule::in(['1st Year','2nd Year','3rd Year','4th Year'])],

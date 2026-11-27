@@ -3,7 +3,7 @@ namespace App\Http\Controllers;
 use App\Models\User;
 use App\Services\Hub;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\{Hash,Password,DB,Mail,URL};
+use Illuminate\Support\Facades\{Hash,Password,DB};
 use Illuminate\Validation\Rules\Password as PasswordRule;
 use Illuminate\Auth\Events\PasswordReset;
 use Illuminate\Support\Str;
@@ -86,34 +86,12 @@ class AuthController extends Controller {
   abort_unless(Hash::check($data['current_password'],$user->password),422,'Current password is incorrect.');
   $email=strtolower($data['email']);
   abort_if(strcasecmp($email,$user->email)===0,422,'Enter an email address different from your current one.');
-  $user->forceFill(['pending_email'=>$email])->save();
-  $url=URL::temporarySignedRoute('email.change.verify',now()->addHour(),[
-   'user'=>$user->id,
-   'email'=>hash('sha256',$email),
-  ]);
-  try{
-   Mail::raw("Confirm your new CampusEvents Hub email address by opening this link within 60 minutes:\n\n".$url,
-    function($mail)use($email){$mail->to($email)->subject('Confirm your CampusEvents Hub email address');});
-  }catch(\Throwable $exception){
-   $user->forceFill(['pending_email'=>null])->save();
-   throw $exception;
-  }
-  return ['message'=>'A confirmation link has been sent to the new email address. Your current email remains active until you confirm it.'];
- }
- public function verifyEmailChange(Request $r){
-  $user=User::findOrFail($r->integer('user'));
-  $pendingEmail=$user->pending_email;
-  abort_unless($pendingEmail && hash_equals(hash('sha256',$pendingEmail),(string)$r->query('email')),403,'This email confirmation link is invalid or expired.');
-  abort_if(User::where('email',$pendingEmail)->where('id','<>',$user->id)->exists(),409,'That email address is no longer available.');
-  $user->forceFill(['email'=>$pendingEmail,'pending_email'=>null,'email_verified_at'=>now()])->save();
-  return redirect(rtrim(config('app.frontend_url'),'/').'/profile?email=verified');
+  $user->forceFill(['email'=>$email,'pending_email'=>null])->save();
+  return ['message'=>'Email address updated.'];
  }
  public function changePassword(Request $r){
   $user=$r->user();
-  $passwordRule=$user->must_change_password
-   ?PasswordRule::min(8)->mixedCase()->numbers()->symbols()
-   :PasswordRule::min(8);
-  $data=$r->validate(['current_password'=>'required|string','password'=>['required','confirmed',$passwordRule]]);
+  $data=$r->validate(['current_password'=>'required|string','password'=>['required','confirmed',PasswordRule::min(8)]]);
   abort_unless(Hash::check($data['current_password'],$user->password),422,'Current password is incorrect.');
   $user->update(['password'=>$data['password'],'must_change_password'=>false]);
   $user->tokens()->where('id','!=',$user->currentAccessToken()?->id)->delete();
